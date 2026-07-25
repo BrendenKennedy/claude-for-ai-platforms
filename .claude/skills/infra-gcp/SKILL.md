@@ -17,8 +17,12 @@ description: >
 # infra-gcp — Google Cloud, with the identity model that removes the keys
 
 **Pinned:** gcloud, google-cloud-* — unpinned · authored 2026-07 · run `/skill-update infra-gcp` once
-the SDK is installed (`gcloud version`). GCP renames and reorganises services regularly — verify
-service names against current docs before relying on them.
+the SDK is installed (`gcloud version`).
+**Verified:** 2026-07-25 — the `iam.disableServiceAccountKeyCreation` constraint id, the Cloud Run
+request-timeout ceiling, and the Data Access audit-log default confirmed against Google Cloud
+documentation. The other org-policy constraint ids and the Autopilot/Standard responsibility split
+are **unverified** — check them against current docs before relying on them. GCP renames and
+reorganises services regularly.
 
 > On-demand: load this when the project runs on GCP. **The boundary is the IAM binding, not this
 > skill's judgment** — same model as the rest of the repo (hooks are guardrails; permissions are the
@@ -111,8 +115,9 @@ runs the same image as everywhere else, and it scales to zero.
 
 - **Cold start against an LLM latency SLO** (`reliability-sre` `R1`): set `--min-instances` above
   zero for anything user-facing. Loading model weights on cold start is minutes, not milliseconds.
-- **Request timeout maxes out at 60 minutes**; a long generation still needs a job or a queue
-  (`caching-and-queues`) rather than a synchronous request.
+- **Request timeout defaults to 5 minutes and maxes out at 60** (`--timeout=3600s`). Raise it
+  deliberately — the default will cut off a long generation, and the ceiling means anything longer
+  needs a Cloud Run job or a queue (`caching-and-queues`) rather than a synchronous request.
 - **One dedicated service account per service**, with only the roles that service needs — not the
   default compute SA.
 - **`--no-allow-unauthenticated` by default**; put IAM or an API gateway in front.
@@ -168,8 +173,11 @@ BigQuery note: it is billed by bytes scanned. Partition and cluster tables, and 
   narrows it later.
 - **A service account key in a repo.** Turn off key creation org-wide; it is the single highest-value
   control on this list.
-- **Data Access audit logs are off by default.** Admin Activity is on; "who read this bucket" is not
-  recorded unless you enable it (`P9`) — and you cannot enable it retroactively.
+- **Data Access audit logs are off by default — with BigQuery as the exception.** Admin Activity is
+  always on; Data Access must be enabled per service, and "who read this bucket" is not recorded
+  until you do (`P9`). **You cannot enable it retroactively**, so the cost of forgetting is an
+  investigation you can't run. BigQuery's Data Access logs are on by default, which is exactly why
+  teams assume the others are too.
 - **Cloud Run scaling to zero on a latency-sensitive path.** Cold start plus model load is a
   user-visible outage that looks like slowness.
 - **Public Cloud SQL IP.** Use the org policy so it cannot be enabled by accident (`P11`).

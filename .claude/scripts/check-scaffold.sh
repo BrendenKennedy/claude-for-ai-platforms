@@ -18,6 +18,14 @@
 #                   and the <PLACEHOLDER> count survives the trip
 #   5. OWNERSHIP  — every file carrying a <PLACEHOLDER> is claimed by /intake or /bootstrap (named
 #                   in their fill lists) — an unclaimed placeholder is a blank nobody will ever fill
+#   6. REFERENCE  — docs/REFERENCE.md is generated; regenerate and diff so it can't lie
+#   7. GOVERNANCE — every canon file has a row in the governance skill's Policy index (an
+#                   unregistered domain is unreachable — nothing surfaces it)
+#   8. FRAMEWORKS — every framework doc is in the lineage table, and every framework id cited in
+#                   canon resolves to a doc that mentions it
+#   9. CITATIONS  — every canon rule id cited in a skill/agent/command resolves to a defined rule;
+#      + TEMPLATES  and the shipped k8s baseline passes the shipped conftest policies (skipped
+#                   silently when conftest isn't installed)
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -258,6 +266,72 @@ if frameworks.is_dir():
 sys.exit(1 if bad else 0)
 PY
 ok "governance: every canon file is registered; framework docs indexed; canon citations resolve"
+
+# ---- 9. CITATIONS + SHIPPED TEMPLATES ---------------------------------------
+# 9a. Canon rule ids cited in skills/agents/commands must resolve to a rule that exists.
+#     Citations accumulate fast (a skill cites D7, AI9, R4, C6...) and a renamed or renumbered rule
+#     breaks them silently — the same drift class as checks 1 and 8.
+#
+#     Scoped to prefixes canon actually DEFINES. `F1` in the evaluation skill is the F1 score, not a
+#     citation, and a check that flags it is a check someone deletes. So: derive the prefix set from
+#     canon, then a `P12` (real prefix, missing rule) fails and an `F1` (no such prefix) is ignored.
+#
+# 9b. The shipped k8s templates must pass the shipped conftest policies. templates/k8s/ is the
+#     hardened exemplar and templates/policies/ is the enforcement; if the first fails the second,
+#     every project generated from them starts broken. Skipped silently when conftest is absent.
+python3 - <<'PY'
+import re, sys
+from pathlib import Path
+
+policy = Path(".claude/memory/policy")
+defined = set()
+for f in policy.glob("*.md"):
+    t = f.read_text()
+    defined |= set(re.findall(r"(?m)^##\s+([A-Z]{1,2}\d{1,2})\s+—", t))   # data-governance style
+    defined |= set(re.findall(r"\*\*([A-Z]{1,2}\d{1,2})\s+—", t))          # model-governance style
+
+if not defined:
+    print("FAIL  no canon rule ids found — did the canon heading style change?")
+    sys.exit(1)
+
+prefixes = {re.match(r"([A-Z]{1,2})", r).group(1) for r in defined}
+CITE = re.compile(r"`([A-Z]{1,2})(\d{1,2})`")
+
+bad = 0
+for d in ("skills", "agents", "commands"):
+    for f in sorted(Path(f".claude/{d}").rglob("*.md")):
+        for prefix, num in set(CITE.findall(f.read_text())):
+            if prefix not in prefixes:
+                continue                      # not a canon citation at all (e.g. `F1`)
+            if prefix + num not in defined:
+                print(f"FAIL  {f}: cites `{prefix}{num}` but no such rule is defined in canon")
+                bad += 1
+sys.exit(1 if bad else 0)
+PY
+cite_status=$?
+# Only claim ok when it actually passed. (Checks 2b/3 above print `ok` unconditionally after a
+# failure — inherited, cosmetic, and worth the same treatment if anyone touches them.)
+if [ "$cite_status" -eq 0 ]; then
+  ok "citations: every canon rule id cited in a skill/agent/command resolves"
+else
+  fails=$((fails + 1))
+fi
+
+if command -v conftest >/dev/null 2>&1; then
+  pol=".claude/templates/policies/conftest"
+  if ! conftest verify -p "$pol" >/dev/null 2>&1; then
+    fail "shipped policies fail their own self-tests (conftest verify) — they may be enforcing nothing"
+  elif ! conftest test -p "$pol" \
+        .claude/templates/k8s/base/deployment.yaml \
+        .claude/templates/k8s/base/rbac-and-service.yaml \
+        .claude/templates/k8s/base/namespace-and-network.yaml >/dev/null 2>&1; then
+    fail "shipped k8s templates FAIL the shipped conftest policies — the exemplar violates the enforcement"
+  else
+    ok "templates: shipped k8s baseline passes the shipped policies, and the policies reject their fixtures"
+  fi
+else
+  echo "note  conftest not installed — skipping the template/policy conformance check (9b)"
+fi
 
 # ---- verdict ----------------------------------------------------------------
 echo

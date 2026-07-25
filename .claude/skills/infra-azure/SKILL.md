@@ -17,8 +17,12 @@ description: >
 # infra-azure — Azure, and the two identity systems you must keep straight
 
 **Pinned:** azure-cli, azure-* SDKs — unpinned · authored 2026-07 · run `/skill-update infra-azure`
-once the CLI is installed (`az version`). Azure renames services frequently (Azure AD → Entra ID is
-recent); verify names against current docs.
+once the CLI is installed (`az version`).
+**Verified:** 2026-07-25 — the AKS network-policy default (and that it is **creation-time only**)
+and the Azure OpenAI abuse-monitoring retention confirmed against Microsoft documentation. The
+Functions Consumption-plan timeout ceiling is **unverified** and deliberately stated without a
+number below. Azure renames services frequently (Azure AD → Entra ID is recent); verify names
+against current docs.
 
 > On-demand: load this when the project runs on Azure. **The boundary is the role assignment, not
 > this skill's judgment.** Canon: `identity-and-access.md` (`I1`–`I3`), `platform-security.md`
@@ -97,8 +101,11 @@ federated credential's subject scoped to the repo **and branch/environment**.
 - **Private cluster** with authorized IP ranges on the API server.
 - **Azure CNI** vs kubenet: CNI gives pods VNet IPs (needed for private endpoints and network
   policy); plan the address space, because exhausting it is painful to fix.
-- **Network policy on** — Azure NPM or Cilium. It is not on by default, and `platform-security.md`
-  `P5` requires it.
+- **Network policy on — and this is a cluster-creation decision you cannot revisit.** AKS ships with
+  no network policy: by default every pod can talk to every other pod, which fails
+  `platform-security.md` `P5`. The trap is that **the policy engine (Azure NPM or Cilium) can only be
+  selected when the cluster is created** — retrofitting it means redeploying the cluster. Decide at
+  `az aks create`, or plan a migration later.
 - **Azure Policy for AKS** enforces Pod Security-equivalent constraints at admission — the built-in
   route to `P1` alongside `policy-as-code`.
 - **Key Vault CSI driver** to mount secrets rather than syncing them into Kubernetes Secrets
@@ -154,10 +161,12 @@ later without a migration.
 
 ## 6. Azure OpenAI
 
-- **Data handling** — Azure OpenAI does not train on your data, but prompts may be retained for
-  abuse monitoring unless you have an approved exemption. Confirm the current terms for your
-  subscription and region rather than assuming, and record the answer: sending a prompt is egress
-  (`S7`).
+- **Data handling** — Azure OpenAI does not train on your data, but **abuse monitoring is on by
+  default and may retain prompts and completions for up to 30 days**. Zero data retention requires
+  an approved exemption, and that exemption is available only under an Enterprise Agreement or
+  Microsoft Customer Agreement — **not on pay-as-you-go**. If your data classification cannot
+  tolerate 30-day third-party retention, that is a procurement constraint to discover now rather
+  than at launch. Sending a prompt is egress (`S7`); record the answer for your subscription.
 - **Deployments pin a model version.** Use that; do not track "latest" (`M14`). Understand the
   retirement schedule — Azure retires model versions on a published timeline, which is a planned
   migration rather than a surprise if you're watching.
@@ -175,7 +184,8 @@ later without a migration.
 - **Owner or subscription Contributor handed out to unblock someone.**
 - **A service principal secret in a pipeline variable.** Federate instead.
 - **Public network access left on for a database.** Deny it by policy (`P11`).
-- **Network policy not enabled on AKS** — it is off by default, so `P5` silently isn't met.
+- **Network policy not enabled on AKS** — off by default, so `P5` silently isn't met, and it is
+  **creation-time only**: discovering this after the cluster exists means a redeploy.
 - **CNI address space under-planned**, discovered when the cluster can't scale.
 - **Azure OpenAI quota discovered in production** as 429s under load.
 - **Resource groups used as a dumping ground**, so the lifecycle boundary means nothing — and then

@@ -192,9 +192,15 @@ python3 .claude/scripts/check-hooks.py    # every guard: blocks, allows, fails o
 ```
 
 CI runs both. `check-scaffold.sh` fails if a skill exists on disk but isn't named in `CLAUDE.md` and
-this README, if a canon file isn't registered in the `governance` skill, or if a framework id cited
-in canon doesn't resolve to a document in `frameworks/` — the map and the territory are kept in sync
-mechanically, because both real bugs in this repo's history were drift of exactly that kind.
+this README, if a canon file isn't registered in the `governance` skill, if a framework id cited in
+canon doesn't resolve to a document in `frameworks/`, or if a canon rule id cited in a skill doesn't
+resolve to a rule that exists — the map and the territory are kept in sync mechanically, because
+both real bugs in this repo's history were drift of exactly that kind.
+
+It also asserts the thing a scaffold is most likely to get wrong about itself: **the shipped
+Kubernetes baseline in `templates/k8s/` must pass the shipped policies in `templates/policies/`**,
+and those policies must reject their own bad fixtures. An exemplar that violates its own enforcement
+would ship broken to every project generated from it.
 
 ## Contributing
 

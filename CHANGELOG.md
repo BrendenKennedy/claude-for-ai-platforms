@@ -13,6 +13,67 @@ versions follow [SemVer](https://semver.org/) per the stability contract in
 > and the stamp's commit **sha** remains the precise reference (`/upgrade`'s three-way logic
 > keys on the sha, not the number).
 
+## [1.2.0] — 2026-07-25
+
+**Dogfood pass.** The scaffold's own review tooling, verification scripts, and policies pointed at
+its own output for the first time — 133 files that had been reviewed only by their author. Plus
+publisher verification of the three cloud skills.
+
+### Fixed
+
+- **The `permissions.allow` list was broader than its own comment claimed.** A Claude Code
+  permission prefix matches the start of the command string and cannot exclude a flag that appears
+  later, so bare tool names granted more than intended: `trivy:*` permitted `trivy plugin install`
+  (arbitrary code execution), `conftest:*` permitted `conftest push` (egress to an OCI registry,
+  `S7`), `semgrep:*` permitted `semgrep scan --autofix` (rewrites source files), and
+  `helm template:*` permitted `--post-renderer` (executes an arbitrary binary). The comment asserted
+  "every entry here either reads state or produces output without changing anything", which was
+  false. Entries are now scoped to subcommands; `semgrep` and `helm template` are **removed
+  entirely** because no prefix can exclude their mutating flags — they go through the normal
+  permission flow instead. `S8` applies to this file most of all.
+- `check-scaffold.sh` check 9 swallowed its own exit status (`python3 … || fails=…` makes `$?`
+  always 0), so a citation failure was counted but still printed `ok`. Caught by its own negative
+  test. The `ok`-after-`FAIL` pattern is inherited by checks 2b/3 and is noted in place.
+
+### Added
+
+- **`check-scaffold.sh` check 9**, in two halves:
+  - **Citations** — every canon rule id cited in a skill, agent, or command resolves to a rule that
+    actually exists. Scoped to prefixes canon defines, so `AI13` fails and the F1 *score* in the
+    `evaluation` skill is correctly ignored — a check that flags a metric name is a check someone
+    deletes.
+  - **Templates** — the shipped `templates/k8s/` baseline must pass the shipped
+    `templates/policies/`, and those policies must reject their own bad fixtures. An exemplar that
+    violates its own enforcement ships broken to every project generated from it. Skipped silently
+    when `conftest` isn't installed.
+  Both halves were negative-tested: a bogus citation and a deliberately weakened template each fail
+  the check.
+
+### Changed — cloud facts verified against publishers
+
+`infra-aws`, `infra-gcp`, and `infra-azure` now carry `**Verified:**` lines naming what was confirmed
+and what was not, matching the standard `policy/frameworks/` already meets.
+
+- **AWS** — Lambda's 900s ceiling confirmed. Corrected: **EKS Pod Identity is the current default for
+  new EC2-based clusters, and IRSA is still required on Fargate, Windows nodes, and EKS Anywhere** —
+  they were presented as interchangeable.
+- **GCP** — Cloud Run's timeout **defaults to 5 minutes** (not just "maxes out at 60"), which will
+  cut off a long generation silently. Data Access audit logs are off by default **except BigQuery**,
+  which is precisely why teams assume the others are on.
+- **Azure** — **AKS network policy can only be selected at cluster creation**; retrofitting it means
+  redeploying the cluster. Azure OpenAI abuse monitoring retains prompts **up to 30 days**, and the
+  zero-retention exemption requires an Enterprise Agreement or MCA — **not available on
+  pay-as-you-go**, which makes it a procurement constraint to discover at P1 rather than at launch.
+- The Azure Functions Consumption-plan timeout could not be confirmed and is deliberately stated
+  without a number.
+
+### Verified, no defect found
+
+The shipped k8s templates pass **165 policy assertions**, all 8 policy self-tests reject their bad
+fixtures, and every shipped template passes the guard hook that governs it. `mcp-json.example`
+correctly triggers an `ask` rather than a block. Reported as a result rather than padded into
+findings.
+
 ## [1.1.0] — 2026-07-25
 
 **The supporting tier.** v1.0.0 covered the platform substrate (Kubernetes, policy, identity, supply

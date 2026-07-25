@@ -77,3 +77,54 @@ and nothing else. Recorded in `memory/process/decision-log.md`.
   account. Both carry the usual `**Pinned:** unpinned` caveat, and cloud service names move — the
   first project on either should run `/skill-update`.
 - SageMaker remains out of scope in `infra-aws`, now stated explicitly rather than implied.
+
+---
+
+## Increment 3 (same day) — dogfood pass + publisher verification
+
+**Focus:** point the scaffold's own tooling at its own 133-file diff, and verify the cloud skills
+against publishers. v1.2.0.
+
+### What the dogfood pass actually found
+
+Two real defects, both in my own work, both now fixed:
+
+1. **`permissions.allow` was broader than its own comment claimed.** A permission prefix matches the
+   start of the command string and cannot exclude a later flag, so `trivy:*` permitted
+   `trivy plugin install` (code execution), `conftest:*` permitted `conftest push` (egress),
+   `semgrep:*` permitted `--autofix` (rewrites files), and `helm template:*` permitted
+   `--post-renderer` (executes a binary). The comment asserted every entry was read-only. Entries are
+   now subcommand-scoped; `semgrep` and `helm template` removed entirely because no prefix can make
+   them safe.
+2. **`check-scaffold.sh` check 9 swallowed its own exit status** — `python3 … || fails=…` makes `$?`
+   always 0, so a failure printed `FAIL` and `ok` together. Caught by its own negative test, which
+   is the argument for writing negative tests.
+
+**And a genuine no-defect result**, reported as such rather than padded: the shipped k8s templates
+pass 165 policy assertions, all 8 policy self-tests reject their bad fixtures, every shipped template
+passes its guard hook, and `mcp-json.example` correctly asks rather than blocks. That check had never
+run before and is now check 9b in CI.
+
+### Cloud verification
+
+Three corrections and two additions that matter operationally: EKS Pod Identity vs IRSA is not a
+free choice (Fargate still needs IRSA); Cloud Run's timeout *defaults* to 5 minutes; GCP Data Access
+audit logs are off by default **except BigQuery**; **AKS network policy is creation-time only**; and
+Azure OpenAI's 30-day abuse-monitoring retention has an exemption available only on EA/MCA, not
+pay-as-you-go. All three cloud skills now carry `**Verified:**` lines naming what was and wasn't
+confirmed. The Azure Functions timeout ceiling could not be confirmed and is stated without a number.
+
+### Design notes
+
+- The skill-name half of check 9 was **dropped**: 25 legitimate backticked hyphenated tokens (agent
+  names, canon file stems, CLI tools) would have been false positives, and a noisy check gets
+  deleted. Only the rule-id half shipped.
+- `platform-security.md` `P#` collides with `PROCESS.md` phase numbering (`P1`–`P7`). No live
+  ambiguity — the checks only read backticked ids and all `P1`–`P11` resolve — but a backticked
+  `P3` meaning "phase 3" would silently resolve to a platform rule. Worth knowing; not worth a rule
+  renumbering.
+
+### Still open
+
+- **The GitHub repo still does not exist** (403, session scope). Unchanged across all three
+  increments.

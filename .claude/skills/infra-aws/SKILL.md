@@ -20,6 +20,10 @@ description: >
 
 **Pinned:** awscli, boto3 — unpinned · authored 2026-07-18 · run `/skill-update infra-aws` once
 the deps are installed (`uv add boto3`; the CLI installs system-side)
+**Verified:** 2026-07-25 — Lambda's 900s/15-minute maximum and the EKS Pod Identity vs IRSA
+guidance confirmed against AWS documentation. Bedrock quota and data-handling specifics are
+region- and account-dependent: **confirm those for your own account rather than relying on this
+file.**
 
 > On-demand: load this when the project's infrastructure is AWS. The **boundary is the IAM
 > policy, not this skill's judgment** — same philosophy as the repo's security model (hooks are
@@ -138,7 +142,8 @@ short-lived.
 
 | Workload | Mechanism |
 |---|---|
-| Pod on EKS | **EKS Pod Identity** (newer, simpler) or **IRSA** — the pod's ServiceAccount assumes a role |
+| Pod on EKS (EC2 nodes) | **EKS Pod Identity** — the current default for new clusters. No OIDC provider to wire, roles reuse across clusters without editing trust policies, and session tags come free |
+| Pod on **Fargate**, Windows nodes, or EKS Anywhere | **IRSA** — Pod Identity does not cover these, so IRSA remains the answer rather than the legacy option |
 | Lambda / ECS task | The function's or task's **execution role** |
 | EC2 | **Instance profile** |
 | GitHub Actions → AWS | **OIDC federation** — scope the trust policy to the repo **and the branch** |
@@ -161,8 +166,9 @@ difference between OIDC federation and a shared credential with extra steps.
 
 ### EKS
 
-- **Pod Identity or IRSA on**, and `automountServiceAccountToken: false` for pods that don't call the
-  Kubernetes API (`P6`).
+- **Pod Identity on EC2 node groups, IRSA on Fargate** (above), and
+  `automountServiceAccountToken: false` for pods that don't call the Kubernetes API (`P6`). The two
+  coexist, so a migration is incremental rather than a cutover.
 - **Private API endpoint** with public access restricted to known CIDRs.
 - **Managed node groups** with a launch template enforcing IMDSv2 and hop limit 1 — IMDSv1 lets any
   pod that can reach the metadata endpoint assume the *node's* role, which is a well-worn escalation
