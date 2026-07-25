@@ -1,19 +1,19 @@
 ---
 name: infra-aws
 description: >
-  AWS for DS infrastructure — S3 + Redshift via the AWS CLI and boto3, acting through a
-  least-privilege `claude-for-datascience` IAM role (starter policy:
-  `.claude/templates/aws-iam-policy.json`). Carries: the role model (project-prefixed resource
-  ARNs, read-heavy defaults, explicit denies on bucket/cluster deletion and all IAM mutation),
-  credential hygiene (named profiles / SSO — keys never in the repo or transcript), S3 data
-  plumbing (buckets as DVC remotes, `aws s3 sync`, versioning + lifecycle for raw immutability),
-  Redshift access (UNLOAD/COPY through S3, the Data API; query discipline stays in `sql`), cost
-  awareness (know what a command spends before running it), and the first-time setup walkthrough
-  (CLI install without sudo, SSO-vs-keys auth done on the human's side, creating the identity +
-  attaching the policy, verifying the boundary). Load when provisioning or touching AWS — or
-  when `aws` isn't installed yet. Triggers: AWS, S3, bucket, boto3, aws cli, IAM, role,
-  Redshift, UNLOAD, COPY, s3 sync, presigned URL, cloud storage, DVC remote s3, aws profile,
-  SSO, install aws cli, aws configure, aws not found, set up the role, connect to AWS.
+  AWS for AI platforms — acting through a least-privilege IAM role, across the six surfaces a
+  platform uses. Carries: the role model (project-prefixed ARNs, read-heavy defaults, explicit
+  denies on deletion and all IAM mutation), credential hygiene (SSO/profiles — keys never in the
+  repo or transcript), **workload identity so no static access key exists** (EKS Pod Identity/IRSA,
+  task vs execution roles, GitHub OIDC with the trust policy scoped to repo AND branch), EKS
+  (private endpoint, IMDSv2, GPU node groups), serverless (Lambda's 15-minute ceiling, Fargate),
+  managed databases (RDS/Aurora/DynamoDB — private subnets, IAM auth), CodePipeline + ECR, Bedrock
+  (data terms, model pinning, per-region quota), plus S3 plumbing (DVC remotes, versioning,
+  lifecycle), Redshift access, and cost awareness. Load when provisioning or touching AWS, or when
+  `aws` isn't installed yet. Triggers: AWS, S3, bucket, boto3, aws cli, IAM, role, IRSA, Pod
+  Identity, EKS, Lambda, Fargate, ECS, RDS, Aurora, DynamoDB, Bedrock, ECR, CodePipeline, Redshift,
+  presigned URL, DVC remote s3, aws profile, SSO, sts get-caller-identity, OIDC federation, IMDSv2,
+  set up the role, connect to AWS.
 ---
 
 # infra-aws — AWS through a role that can't hurt you much
@@ -23,9 +23,10 @@ the deps are installed (`uv add boto3`; the CLI installs system-side)
 
 > On-demand: load this when the project's infrastructure is AWS. The **boundary is the IAM
 > policy, not this skill's judgment** — same philosophy as the repo's security model (hooks are
-> guardrails; permissions are the boundary), extended to the cloud. Scope v1: **S3 + Redshift**.
-> SageMaker/EC2 are deliberately out until demand shows. Credential *policy* lives in the
+> guardrails; permissions are the boundary), extended to the cloud. Credential *policy* lives in the
 > security canon (`governance` → `security.md` `S8`); warehouse query discipline is `sql`.
+> **SageMaker remains out of scope** — it is a large surface with its own opinions, and nothing here
+> needs it yet; use `serving` + `kubernetes` instead, or open it as a decision when a project does.
 >
 > **Neighbours:** provisioning AWS resources declaratively is `iac-terraform` (do not click in the
 > console — a resource created by hand is drift by definition). Workload access to AWS APIs should
@@ -35,7 +36,7 @@ the deps are installed (`uv add boto3`; the CLI installs system-side)
 > **OIDC federation, never a stored access key** (`supply-chain.md` `C6`).
 
 ## The role model — set up once, by the human
-Claude acts through a dedicated **`claude-for-datascience`** IAM identity whose policy is the
+Claude acts through a dedicated **`claude-for-ai-platform`** IAM identity whose policy is the
 blast radius. Starter policy: `.claude/templates/aws-iam-policy.json` — copy it, replace
 `PROJECT-PREFIX` (S3 bucket prefix), `ACCOUNT-ID`, `REGION`, `CLUSTER-NAME`, `DB-NAME`, and `DB-USER`, review it
 yourself, then attach it. Its shape, which the human should verify survives their edits:
@@ -88,11 +89,11 @@ prepares; the human executes (the agent's own role has `iam:*` denied, and the h
 any `aws iam` mutation — both by design). Prepare for them: the filled-in policy JSON (from
 the template, placeholders replaced), and this sequence —
 ```bash
-aws iam create-policy --policy-name claude-for-datascience \
+aws iam create-policy --policy-name claude-for-ai-platform \
     --policy-document file://aws-iam-policy.filled.json
-aws iam create-user --user-name claude-for-datascience        # or create-role + trust policy for SSO/assume
-aws iam attach-user-policy --user-name claude-for-datascience \
-    --policy-arn arn:aws:iam::ACCOUNT-ID:policy/claude-for-datascience
+aws iam create-user --user-name claude-for-ai-platform        # or create-role + trust policy for SSO/assume
+aws iam attach-user-policy --user-name claude-for-ai-platform \
+    --policy-arn arn:aws:iam::ACCOUNT-ID:policy/claude-for-ai-platform
 ```
 Console clicking works identically (IAM → Policies → Create from JSON → attach). Either way,
 **the human reads the policy before attaching** — the review is the point, not a formality.
@@ -124,6 +125,99 @@ boundary you haven't tested.
   anti-pattern at warehouse scale.
 - Training extracts landed from UNLOAD get versioned (`data-dvc`) and recorded in the dataset
   manifest with the query file + extract time.
+
+## The platform surfaces — EKS, serverless, managed DBs, native CI/CD, Bedrock
+
+Beyond S3 + Redshift, these are the five surfaces an AI platform on AWS actually uses. Each is
+treated the same way as everything above: the boundary is the IAM policy, and the identity is
+short-lived.
+
+### Workload identity — the rule that removes the keys (`I3`)
+
+**No static access keys for workloads. Ever.** The mechanisms, in order of preference:
+
+| Workload | Mechanism |
+|---|---|
+| Pod on EKS | **EKS Pod Identity** (newer, simpler) or **IRSA** — the pod's ServiceAccount assumes a role |
+| Lambda / ECS task | The function's or task's **execution role** |
+| EC2 | **Instance profile** |
+| GitHub Actions → AWS | **OIDC federation** — scope the trust policy to the repo **and the branch** |
+
+```bash
+aws sts get-caller-identity        # S8 — the wrong identity means stop
+aws eks describe-cluster --name CLUSTER --query cluster.identity.oidc.issuer
+```
+
+The trust-policy condition is the part that gets written too loosely:
+
+```json
+"Condition": {
+  "StringEquals": {"token.actions.githubusercontent.com:aud": "sts.amazonaws.com"},
+  "StringLike":   {"token.actions.githubusercontent.com:sub": "repo:ORG/REPO:ref:refs/heads/main"}
+}
+```
+A `sub` of `repo:ORG/REPO:*` trusts **any** branch — including one a contributor pushed. That is the
+difference between OIDC federation and a shared credential with extra steps.
+
+### EKS
+
+- **Pod Identity or IRSA on**, and `automountServiceAccountToken: false` for pods that don't call the
+  Kubernetes API (`P6`).
+- **Private API endpoint** with public access restricted to known CIDRs.
+- **Managed node groups** with a launch template enforcing IMDSv2 and hop limit 1 — IMDSv1 lets any
+  pod that can reach the metadata endpoint assume the *node's* role, which is a well-worn escalation
+  path.
+- **GPU node groups** with taints plus the NVIDIA device plugin; separate from general workloads.
+- **Security groups for pods** where you need per-pod network policy at the VPC layer, alongside
+  Kubernetes NetworkPolicy (`P5`).
+- What AWS owns vs you → record it in `memory/process/control-coverage.md` (`P8`). On EKS the
+  control plane is theirs; the nodes, the CNI configuration, and everything in §5 of the CIS
+  Kubernetes Benchmark are yours.
+
+### Serverless
+
+- **Lambda:** a 15-minute maximum timeout, which a long generation can exceed — use a queue
+  (`caching-and-queues`) or Step Functions rather than fighting it. Cold start plus model load makes
+  Lambda a poor fit for inference; it is a good fit for the glue around it. One execution role per
+  function, least-privilege. Enable **SnapStart** where the runtime supports it.
+- **ECS on Fargate:** the better fit for containerised inference that doesn't need Kubernetes.
+  Task role (what the app uses) and execution role (what pulls the image) are **different roles** —
+  conflating them is a common over-grant.
+- **Step Functions** for orchestration inside AWS; see `workflow-orchestration` before adding it
+  alongside another engine.
+
+### Managed databases
+
+| Service | For |
+|---|---|
+| **RDS PostgreSQL / Aurora** | Default OLTP. Supports `pgvector` (`vector-stores`) |
+| **DynamoDB** | Key-value at scale. Design around the access pattern; it is not a relational store |
+| **ElastiCache** | Redis (`caching-and-queues`) |
+| **OpenSearch** | Search + vector, if you already run it |
+
+Non-negotiables (`P11`, `D9`): **private subnets, `publicly_accessible = false`** — `guard-iac.py`
+blocks the manifest that sets it true; security group scoped to the app's SG, never `0.0.0.0/0` on
+5432; **IAM database authentication** rather than a stored password where supported; encryption at
+rest with a CMK; automated backups with **a tested restore** (`D10`).
+
+### CodePipeline / CodeBuild
+
+Held to the same bar as `secure-cicd`: a least-privilege service role **per pipeline**, no long-lived
+credentials inside builds, untrusted-contributor builds receive no secrets (`CICD-SEC-4`), and
+artifacts signed and verified between stages (`C3`). **ECR** with scan-on-push, immutable tags, and a
+lifecycle policy so old images expire.
+
+### Bedrock
+
+- **Data handling:** prompts and completions are not used to train the base models, but confirm the
+  current terms and your region's data-residency guarantees rather than assuming — sending a prompt
+  is egress (`S7`), and the answer belongs in the record.
+- **Pin the model id including its version** (`M14`). Model deprecations are announced on a schedule;
+  track them.
+- **VPC endpoints** so traffic doesn't traverse the public internet, and **Guardrails** as a
+  `guardrails`-layer control — not a substitute for your own.
+- **Quotas are per-region, per-model, in tokens per minute** — an availability constraint as much as
+  a cost one. Handle throttling with backoff (`R4`) and plan a fallback (`R5`).
 
 ## Cost awareness (cost bugs are silent like leakage bugs)
 Know the pricing dimension before running: S3 = storage + requests + **egress** (a `sync` down

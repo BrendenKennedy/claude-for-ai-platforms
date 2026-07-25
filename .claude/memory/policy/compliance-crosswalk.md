@@ -53,6 +53,7 @@ Canon rule prefixes: `S` security (dev loop) · `AI` ai-security · `P` platform
 | `P8` control plane + etcd hardened, encrypted | PR.DS-01, PR.PS-01 | SC-8, SC-28 | A.8.24 | CC6.6, CC6.7 | CIS K8s §1–3; NSA/CISA |
 | `P9` audit logging shipped off-cluster | DE.CM-09, PR.PS-04 | AU-4, AU-9, AU-6 | A.8.15, A.8.16 | CC7.2, CC7.3 | NSA/CISA; CIS K8s §3.2 |
 | `P10` enforced tenancy boundaries | PR.IR-01, PR.AA-05 | AC-4, SC-2, SC-7 | A.8.22, A.8.31 | CC6.1, CC6.6 | SP 800-190; NSA/CISA |
+| `P11` data stores not internet-reachable, not default-credentialed | PR.IR-01, PR.AA-03 | SC-7, AC-3, IA-5 | A.8.20, A.8.5 | CC6.1, CC6.6 | CIS K8s §5.3; NSA/CISA |
 
 ## Identity and access
 
@@ -101,6 +102,9 @@ Canon rule prefixes: `S` security (dev loop) · `AI` ai-security · `P` platform
 | `S1`–`S9` (threat model, secrets, egress, agent identity, dev supply chain) | PR.AA, PR.DS, GV.SC | AC-6, IA-5, SC-28, SA-12 | A.5.17, A.8.12, A.8.24 | CC6.1, CC6.7 |
 | `D1`–`D6` (licensing, PII, provenance, splits, retention) | GV.OC, ID.AM-07, PR.DS | PT-2, PT-3, SI-12, RA-3 | A.5.34, A.8.10, A.8.11 | P-series (Privacy) |
 | `D7` (retrieval corpus governance + integrity) | PR.DS-01, ID.AM-07 | SI-7, SC-28, PT-2 | A.8.10, A.8.11 | CC6.1, P-series |
+| `D8` (store-level tenancy enforced by the query) | PR.AA-05, PR.DS-01 | AC-3, AC-4, SC-2 | A.5.15, A.8.3 | CC6.1, CC6.3 |
+| `D9` (encryption at rest and in transit, incl. derivatives) | PR.DS-01, PR.DS-02 | SC-8, SC-28 | A.8.24 | CC6.7 |
+| `D10` (tested restore; deletion reaches derived artifacts) | RC.RP, PR.DS-11 | CP-9, CP-10, SI-12, PT-2 | A.8.13, A.8.10 | A1.2, P-series |
 | `M1`–`M13` (reproducibility, provenance, eval, model cards) | GV.SC, ID.AM-08 | CM-8, SA-10, SI-7 | A.8.9, A.8.25 | CC8.1 |
 | `M14`–`M16` (third-party models, prompt versioning, trajectory eval) | GV.SC-06, ID.AM-08 | CM-8, SA-9, SA-11 | A.5.19, A.5.21, A.8.29 | CC8.1 |
 

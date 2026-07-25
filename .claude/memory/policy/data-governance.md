@@ -114,6 +114,53 @@ come from it being reachable by a model at inference time.
 highest-privilege input to the model — a poisoned or over-scoped corpus defeats every prompt-level
 control, and a corpus with no per-document provenance cannot be cleaned once it is wrong.*
 
+## D8 — Store-level tenancy is enforced by the query, not by the caller
+Wherever project data is separated by tenant, customer, or sensitivity class, the separation is
+enforced **inside the store's query path** — a `WHERE tenant_id = :ctx` the application cannot omit, a
+vector-search metadata filter applied before scoring, a graph traversal rooted in the caller's
+subgraph, a per-tenant index or collection.
+- **Filter in the query, never after.** Fetch-then-filter leaks through result counts, timing, cursor
+  behaviour, and the one code path that forgets.
+- **Never enforce tenancy in a prompt.** An instruction telling the model to ignore documents it can
+  see is not a control — if the retriever returned another tenant's chunk, the breach already
+  happened (`ai-security.md` `AI4`).
+- The tenant identity comes from the authenticated context, never from a client-supplied parameter
+  (`identity-and-access.md` `I4`).
+- Cross-tenant access is tested explicitly, as a negative test, in CI. Testing only as a
+  high-privilege user finds nothing.
+
+*Why: this is the generalisation of D7 to every store an AI platform touches — relational, vector,
+graph, cache, object — and it is the single failure that turns a bug into a reportable breach. It
+gets its own rule because "the application handles it" is exactly the arrangement that fails.*
+
+## D9 — Every store holding project data encrypts at rest and in transit
+TLS on every connection, including inside a VPC or cluster — internal networks are not trusted
+networks. Encryption at rest on the volume or the managed service, with the key's owner recorded.
+Where a managed service offers customer-managed keys and the data class warrants it, use them and
+record the decision.
+- Backups, snapshots, replicas, and exports inherit this. An encrypted primary with a plaintext
+  nightly dump to a bucket is not encrypted.
+- Applies to the derived stores too: vector indexes, caches, search indexes, queues in flight.
+
+*Why: encryption at rest is a one-line setting during provisioning and a migration afterwards, and
+its absence is the finding that turns a routine assessment into a remediation project.*
+
+## D10 — Backup and restore are tested, and deletion reaches derived artifacts
+- **A backup nobody has restored is not a backup.** Restore is exercised at least once, and the
+  exercise is dated in `memory/process/control-coverage.md`. Record the actual RPO and RTO measured,
+  not the ones intended.
+- **Deletion must reach every derivative.** Removing a source record does not remove its embeddings,
+  its cached chunks, its search-index entry, its graph nodes, its read replicas, its queue messages,
+  or its snapshots. D6's deletion procedure enumerates every store the data reached, or it does not
+  work — and a subject-access deletion request that misses the vector index is a live compliance
+  failure, not an inconvenience.
+- Retention windows apply per store, including the derived ones; an index built from expired data is
+  expired data.
+
+*Why: the two halves of this rule fail in opposite directions and both are silent — an untested
+backup fails at the only moment it is needed, and an incomplete deletion looks successful while the
+data is still queryable through a store nobody listed.*
+
 ---
 
 ## Recording a judgment call

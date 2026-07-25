@@ -10,7 +10,7 @@ role-setup time — the human reviews and attaches it; nothing copies it automat
 | `dot-env.example` | `.env.example` | the env vars the entry points read (copy to `.env`, fill in; synced with the resource matrix) |
 | `pre-commit-config.yaml` | `.pre-commit-config.yaml` | ruff + nbstripout + gitleaks on human commits (`uvx pre-commit install`) |
 | `project-ci.yml` | `.github/workflows/ci.yml` | offline tier in CI: uv sync --frozen → ruff → pytest |
-| `aws-iam-policy.json` | (not copied — attached in AWS by the human) | least-privilege starter policy for the `claude-for-datascience` role (`infra-aws` skill) |
+| `aws-iam-policy.json` | (not copied — attached in AWS by the human) | least-privilege starter policy for the `claude-for-ai-platform` role (`infra-aws` skill) |
 
 ## `memory/` — blank stores seeded at install time (not by `/bootstrap`)
 `memory/roadmap.md` and `memory/scaffold-journal.md` are the **empty** versions `install.sh` drops

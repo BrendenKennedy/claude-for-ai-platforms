@@ -107,6 +107,19 @@ Logs go to a destination the cluster's own credentials cannot delete.
 *Why: an audit log an attacker with cluster access can erase is not evidence, and this is the control
 that determines whether an incident can be investigated at all. [NSA/CISA][CIS 3.2]*
 
+**P11 — Data stores are never internet-reachable and never default-credentialed.** Every database,
+cache, queue, vector store, graph store, and search index sits in a private subnet or a
+cluster-internal network, reachable only from the workloads that need it (`P5`). Authentication is
+on and the shipped default credential is gone before the service accepts a connection. Specifically:
+no `publicly_accessible` managed database, no `0.0.0.0/0` on a database port, no Redis or
+Elasticsearch or MongoDB bound to a public interface, and no store relying on network position as
+its only authentication. Where an operator or client needs access, it goes through a bastion, a
+VPN, or a proxy with its own authentication — never a public endpoint with a password.
+*Why: unauthenticated, internet-exposed data stores are the most reliably exploited class of
+misconfiguration there is, they are found by internet-wide scanning within hours, and every instance
+of it began as a default that nobody changed. `guard-iac.py` blocks the shapes it can see; this rule
+covers the ones it cannot. [CIS 5.3][NSA/CISA][SP 800-190]*
+
 `<PLACEHOLDER: approved container registries, and who approves a new one>`
 `<PLACEHOLDER: the cluster's tenancy model — dedicated, namespace-per-team, or shared — and the
 sensitivity classes permitted to share a node pool>`

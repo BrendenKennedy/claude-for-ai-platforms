@@ -46,8 +46,18 @@ meet the administrative bar.
 targeted phish is after. [800-63B AAL2/AAL3]*
 
 **I3 — Workload credentials are short-lived and platform-issued. No static secrets.** Workloads
-receive identity from the platform — SPIFFE SVIDs, projected Kubernetes service-account tokens with
-an explicit audience, cloud workload identity (IRSA / Workload Identity), or CI OIDC federation.
+receive identity from the platform. The mechanism per environment — the rule is the *property*, not
+the product, so a project on any of these complies:
+
+| Environment | The mechanism |
+|---|---|
+| Any cluster running SPIRE | SPIFFE SVIDs (X.509 or JWT), auto-rotated |
+| Kubernetes, in-cluster | Projected ServiceAccount tokens with an explicit `audience` and short `expirationSeconds` |
+| AWS | IRSA or EKS Pod Identity — the pod's SA maps to a role; no keys anywhere |
+| GCP | Workload Identity Federation — the KSA binds to a Google service account |
+| Azure | Azure Workload Identity — the SA federates to a managed identity |
+| CI → cloud | OIDC federation, with the trust policy scoped to the repo **and the branch** |
+
 Long-lived API keys, static cloud access keys, and mounted credential files are prohibited for
 service-to-service authentication. This applies to CI/CD as a workload: **no long-lived cloud
 credentials in a pipeline** — federate.
