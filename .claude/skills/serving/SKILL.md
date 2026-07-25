@@ -20,7 +20,35 @@ description: >
 > On-demand: load this at deploy time (P6→P7). Which model ships is the registry's alias
 > (`tracking-mlflow`), promotion is governed (`model-governance` + decision log), and the moment
 > it serves, `monitoring` takes over — this skill is the mechanics between those: the scoring
-> path itself. Endpoint auth and what may be logged are `security`/`data-governance` calls.
+> path itself.
+>
+> **Where the neighbours start:** endpoint authentication and per-request authorization are
+> `authn-authz` (`I4`, `I5` — a valid token is not an authorization decision); what may be logged
+> is `security.md` `S6` + `data-governance`; running the endpoint on a cluster, autoscaling it,
+> and GPU scheduling are `kubernetes`; timeouts, retries, circuit breakers, fallbacks, and the
+> latency SLO are `reliability-sre` (`R1`, `R4`, `R5`); traces and token/cost telemetry are
+> `observability`; and for an LLM endpoint, output filtering and structured-output validation are
+> `guardrails` while the agent-layer design is `agent-security`.
+
+## LLM inference endpoints — what differs from classic model serving
+
+Most of this skill applies unchanged, but four things break the usual assumptions:
+
+- **Load the weights once, and expect it to be slow.** Multi-gigabyte weights mean cold start is
+  measured in minutes, not milliseconds — which drives the `startupProbe`, the warm-replica floor,
+  and honest cold-start accounting against the latency SLO (`kubernetes`, `reliability-sre` `R1`).
+- **Streaming changes the latency contract.** Time-to-first-token is what users feel; total
+  completion time hides it. Emit both (`observability`), and remember that **output filters wired
+  only on the complete response do nothing on the streaming path** (`guardrails`).
+- **Throughput comes from continuous batching, not from more workers.** A dedicated inference
+  server (vLLM, TGI, or the provider's API) handles request batching, KV-cache management, and
+  concurrency far better than a hand-rolled FastAPI loop. Reach for one before optimising your own.
+- **Cost and tokens are first-class operational signals.** Per-request token and cost caps that
+  fail closed are canon (`ai-security.md` `AI9`), not a nice-to-have — unbounded consumption is
+  simultaneously a DoS vector and a budget incident.
+
+Third-party model APIs are dependencies with versions: pin to a dated snapshot and record it
+(`model-governance.md` `M14`), or your evaluations stop being reproducible when the provider ships.
 
 ## First decision: batch beats online until proven otherwise
 If predictions are consumed on a cadence (daily scores, nightly QC reports), ship a **scheduled

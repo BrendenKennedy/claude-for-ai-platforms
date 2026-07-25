@@ -25,7 +25,14 @@ the deps are installed (`uv add boto3`; the CLI installs system-side)
 > policy, not this skill's judgment** — same philosophy as the repo's security model (hooks are
 > guardrails; permissions are the boundary), extended to the cloud. Scope v1: **S3 + Redshift**.
 > SageMaker/EC2 are deliberately out until demand shows. Credential *policy* lives in the
-> security canon (`governance` → `security.md`); warehouse query discipline is `sql`.
+> security canon (`governance` → `security.md` `S8`); warehouse query discipline is `sql`.
+>
+> **Neighbours:** provisioning AWS resources declaratively is `iac-terraform` (do not click in the
+> console — a resource created by hand is drift by definition). Workload access to AWS APIs should
+> use **IRSA / EKS Pod Identity**, not stored keys — that's `authn-authz` `I3`, and it is the
+> preferred answer whenever a pod needs S3 or Redshift. EKS cluster configuration and workloads are
+> `kubernetes`; secret storage in Secrets Manager/SSM is `secrets-management`; CI reaching AWS uses
+> **OIDC federation, never a stored access key** (`supply-chain.md` `C6`).
 
 ## The role model — set up once, by the human
 Claude acts through a dedicated **`claude-for-datascience`** IAM identity whose policy is the

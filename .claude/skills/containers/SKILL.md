@@ -7,11 +7,13 @@ description: >
   at start, not baked in), GPU runtime (nvidia-container-toolkit, `--gpus all`, CUDA-base vs
   driver compatibility), Compose for support services (MLflow server + Postgres, Label Studio)
   with named volumes and `.env` wiring, `.dockerignore` as a hard rule (data/, models/, .env —
-  images must never swallow datasets or secrets), digest-pinned base images, and volume-mounting
-  data instead of copying it. Kubernetes is deliberately out of scope (parked). Load when writing
-  a Dockerfile or compose file, or containerizing training/serving. Triggers: docker, dockerfile,
-  container, containerize, compose, docker-compose, image, base image, nvidia runtime, --gpus,
-  volume, bind mount, .dockerignore, docker build.
+  images must never swallow datasets or secrets), digest-pinned base images, hardened runtime
+  images (distroless/slim, non-root, multi-stage so build tooling never ships), and volume-mounting
+  data instead of copying it. Load when writing a Dockerfile or compose file, or containerizing
+  training/serving. Triggers: docker, dockerfile, container, containerize, compose,
+  docker-compose, image, base image, distroless, non-root container, multi-stage build, nvidia
+  runtime, --gpus, volume, bind mount, .dockerignore, docker build. Running images on a cluster is
+  `kubernetes`; scanning and signing them is `supply-chain-security`.
 ---
 
 # containers — images and services without surprises
@@ -22,9 +24,15 @@ description: >
 > On-demand: load this when the project needs an image (training on another box, serving) or
 > local services (a real MLflow server, Postgres, Label Studio). The reproducibility rules are
 > the repo's usual ones at image altitude: pin what you build from, build from the lockfile,
-> and keep data/secrets out of layers. **K8s is deliberately parked** — Compose covers the
-> support-service need at this scaffold's scale; orchestration is a platform decision, not a
-> default.
+> and keep data/secrets out of layers. **Compose is for local support services; running images
+> in production is `kubernetes`** — this fork un-parked orchestration (see
+> `memory/process/decision-log.md`). Image *security* obligations are canon
+> (`policy/supply-chain.md` `C5`, `policy/platform-security.md` `P4`); scanning, SBOM, and
+> signing are `supply-chain-security`.
+>
+> **Runtime images are hardened by default:** digest-pinned base, distroless or slim, multi-stage
+> so build tooling never ships, `USER` set to a non-root uid. A container that runs as root fails
+> Pod Security `restricted` and is blocked before it reaches a cluster (`P1`).
 
 ## The training image (reproducibility is the point)
 ```dockerfile

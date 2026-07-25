@@ -50,6 +50,25 @@ be on PATH, not the locked env — tests then pass or fail against the wrong dep
    `uv run python train.py epochs=1` (fit-not-trained AD projects: `uv run python fit.py`) — then
    confirm the tracker run and the checkpoint on disk exist. Exit code 0 is not evidence.
 
+## Platform & security checks (offline, fast, and they gate the session)
+
+Same ladder position as the ML checks below — cheap, offline, and they catch the expensive class.
+The `run-security-tests.sh` Stop hook runs this tier before a session can end, alongside the leakage
+tests.
+
+| Check | What it asserts | Runs |
+|---|---|---|
+| **Manifest conformance** | Every generated manifest satisfies `platform-security.md` — PSS `restricted`, resource limits, digest-pinned images, no wildcard RBAC | `kubectl kustomize deploy/overlays/<env> \| conftest test -p policies/ -` |
+| **Policy unit tests** | Each policy **rejects** a known-bad fixture and **passes** a known-good one. A policy with no failing fixture may be silently passing everything | `conftest verify -p policies/` |
+| **IaC plan policy** | The Terraform *plan* (not the source) has no public exposure, wildcard IAM, or unencrypted storage | `terraform show -json tfplan \| conftest test -p policies/ -` |
+| **Injection regression** | Every red-team finding that was ever fixed stays fixed. **Hard fail on any regression** | the safety suite in `evals/` (`llm-red-teaming` → `agent-evaluation`) |
+| **Authorization tests** | A low-privilege principal cannot reach another tenant's objects. Test cross-tenant explicitly — testing only as an admin finds nothing | app test suite (`authn-authz` `I4`) |
+| **Hook behaviour** | Each guard hook blocks its bad payload, allows its good one, and **fails open on malformed stdin** | pipe fixture JSON to `.claude/hooks/<name>` and assert the exit code |
+
+The last row is the one people skip: a guard hook that crashes on unexpected input either blocks
+everything or nothing, and both are discovered at the worst time. Every hook gets three cases —
+blocks, allows, fails open.
+
 ## ML confidence checks (the cheap ones that catch the expensive bugs)
 These are fast, offline, and CPU-only — they belong in the unit tier and buy far more confidence per
 second than a full training run. They live in `tests/test_smoke.py` and `tests/test_leakage.py`.

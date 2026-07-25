@@ -19,6 +19,12 @@ description: >
 > carries how this repo picks a metric, runs eval deterministically apart from training, and pairs every
 > aggregate number with error analysis. It does **not** own split integrity — that's `datasets` — nor
 > run comparison plumbing, which is `tracking-mlflow`.
+>
+> **For LLM and agentic systems, go to `agent-evaluation` instead.** Trajectory and tool-call
+> correctness, LLM-as-judge discipline, RAG metrics, and safety/red-team suites are a different
+> measurement problem and live there. This skill covers classic supervised metrics — which still
+> apply underneath (a judge is a classifier; calibration and slice analysis are the same ideas), so
+> the two compose rather than compete. Whether a difference is real is `statistics`, either way.
 
 ## When this applies
 Building or changing an eval script, choosing which metric to report, deciding an operating point /

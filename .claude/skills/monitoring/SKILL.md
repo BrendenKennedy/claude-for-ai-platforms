@@ -8,10 +8,12 @@ description: >
   delayed-ground-truth loop (proxy metrics until labels arrive), live performance on the P1
   metric with slices, reference windows + alert thresholds, retraining triggers
   (schedule / drift / upstream event), and shadow-eval before a registry alias moves. Load when
-  deploying a model, wiring drift detection, or asking "is the model stale". Triggers:
-  monitoring, observability, drift, data drift, concept drift, PSI, KS test, production model,
-  model decay, stale model, retrain trigger, shadow deployment, canary, alerting, ground truth
-  delay, feedback loop, prediction logging.
+  deploying a model, wiring drift detection, or asking "is the model stale". Triggers: model
+  monitoring, drift, data drift, concept drift, PSI, KS test, production model, model decay,
+  stale model, retrain trigger, shadow deployment, ground truth delay, feedback loop, prediction
+  logging. **Model** decay only — systems telemetry (traces, metrics, logs, OpenTelemetry) is
+  `observability`, SLOs and alerting policy are `reliability-sre`, and agent/LLM quality in
+  production is `agent-evaluation`.
 ---
 
 # monitoring — making model decay visible
@@ -21,6 +23,12 @@ description: >
 > (`tracking-mlflow`) is how a replacement ships, and retrain/promote decisions are governed
 > (`model-governance` + the decision log). This skill owns the loop that notices decay.
 > Tool-agnostic: the concepts map onto evidently/whylogs/custom jobs equally.
+>
+> **Scope boundary — this is model monitoring, not systems observability.** Emitting traces,
+> metrics, and logs is `observability`; SLIs, SLOs, error budgets, and alerting policy are
+> `reliability-sre`; scoring an agent's output quality in production is `agent-evaluation`. The
+> two meet at one point: a quality SLI (`reliability-sre` `R1`) is fed by the loop this skill
+> describes.
 
 ## First: log enough to monitor at all
 At inference time, durably log (sampled if volume demands): input features (or image
