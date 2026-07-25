@@ -93,6 +93,27 @@ Hold data only as long as the recorded lawful basis (D2) and project need justif
 *Why: "keep everything forever" converts a one-time collection into an unbounded, growing liability, and
 some regimes make deletion a legal obligation, not a courtesy.*
 
+## D7 — A retrieval corpus is a governed dataset, and an attack surface
+Anything ingested into a vector store, knowledge base, or agent memory is a dataset under D1–D6 — source,
+license, PII treatment, provenance, and retention all apply — **plus** the integrity requirements that
+come from it being reachable by a model at inference time.
+- **Record the source of every ingested document**, at the granularity you would need to remove it. "We
+  indexed the wiki" is not provenance; a per-document source, ingest date, and content hash is.
+- **Never ingest from a user-writable location without review.** A corpus fed by uploads, tickets, or
+  scraped pages is a corpus an attacker can write to (`ai-security.md` `AI4`).
+- **Scope retrieval by tenant and enforce the scope at query time**, in the retrieval filter — never by
+  instructing the model to ignore documents it can see. Embeddings leak: a store that returns another
+  tenant's chunk has already breached, whatever the model does with it.
+- **Deletion must reach the derived artifacts.** Removing a source document does not remove its
+  embeddings, its cached chunks, or its presence in agent memory — D6's deletion procedure covers all of
+  them or it does not work.
+- **Retention applies to memory too.** Durable agent memory holds user content by definition; give it a
+  bounded lifetime.
+
+*Why: retrieval corpora are assembled quickly, from sources nobody licensed, and then quietly become the
+highest-privilege input to the model — a poisoned or over-scoped corpus defeats every prompt-level
+control, and a corpus with no per-document provenance cannot be cleaned once it is wrong.*
+
 ---
 
 ## Recording a judgment call

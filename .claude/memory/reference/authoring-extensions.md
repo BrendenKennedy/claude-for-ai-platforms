@@ -171,9 +171,12 @@ owns that file; this section covers only the hook conventions this repo enforces
 | Want to… | Copy | Event · exit |
 |---|---|---|
 | block a dangerous/secret-leaking **edit** | `guard-secrets.py`, `guard-pyproject.py` | PreToolUse Edit\|Write · exit 2 to block |
+| block a **misconfigured manifest** (k8s, IaC) | `guard-k8s-manifests.py`, `guard-iac.py` | PreToolUse Edit\|Write · exit 2 to block |
+| **confirm-gate** a change rather than block it | `guard-agent-config.py` | PreToolUse Edit\|Write · `permissionDecision: "ask"` |
 | block a dangerous **shell** command | `validate-bash.sh` | PreToolUse Bash · block/ask/allow tiers |
-| **format/lint** after an edit (never block) | `validate-python.py` | PostToolUse Edit\|Write · always exit 0 |
-| run a **gate** before the session ends | `run-leakage-tests.sh` | Stop · exit 2 to block |
+| **format/lint** after an edit (never block) | `validate-python.py`, `validate-manifests.py` | PostToolUse Edit\|Write · always exit 0 |
+| **annotate** content the agent just read | `scan-untrusted-content.py` | PostToolUse WebFetch\|Read · `additionalContext`, never blocks |
+| run a **gate** before the session ends | `run-leakage-tests.sh`, `run-security-tests.sh` | Stop · exit 2 to block |
 
 **Security-flavored hooks** (guards against secrets, destructive ops, egress) implement the security
 canon — consult `governance` → `.claude/memory/policy/security.md` for what they must enforce, and keep
@@ -182,6 +185,42 @@ the guard and the policy in sync.
 **Wiring:** add the hook under the right event in `settings.json` `hooks`, using
 `$CLAUDE_PROJECT_DIR/.claude/hooks/<name>.<ext>` as the command. Then register a row in the CLAUDE.md
 hooks table. (`update-config` handles the settings.json edit correctly, including the matcher shape.)
+
+---
+
+## Policy canon — `memory/policy/<domain>.md`
+
+Not an "extension" in the four-type sense (nothing routes on it), but it's authored work with rules
+that bite, so it belongs here.
+
+- **Canon is DATA; the `governance` skill is the PROTOCOL.** Policy text lives in exactly one canon
+  file and is never copied into a skill, an agent body, or `CLAUDE.md` — those point at it.
+- **Number your rules.** `data-governance.md` uses `## D1 — <title>` H2s with a closing `*Why: …*`;
+  `model-governance.md` uses bold-inline `**M1 — …**` grouped under thematic H2s; `security.md` uses
+  `S#`. Pick the sibling style closest to your domain and match it exactly. Numbering is what lets a
+  decision log, a hook message, or a review finding cite one rule rather than gesture at a file.
+- **Every rule carries a `why`.** A rule without one gets argued with; a rule with one gets followed.
+- **Register it twice** — a row in the `governance` skill's Policy index *and* its sharp trigger
+  words folded into that skill's `description`. Miss the second and the domain is unreachable:
+  nothing surfaces `governance` for a change it should govern. `check-scaffold.sh` check 7 catches
+  the missing row; nothing but review catches the missing triggers.
+- **Don't pre-create the decision log.** It's created on the first judgment call, and its absence is
+  meaningful — it means no exception has ever been granted.
+
+### Framework docs — `memory/policy/frameworks/<framework>.md`
+
+This fork sources its rules from published security frameworks, so canon may cite framework control
+IDs (`[LLM01]`, `[ASI06]`, `[CIS 5.2.5]`) — a deliberate change from the parent scaffold, recorded in
+`memory/process/decision-log.md`. The rule that keeps it from becoming citation soup:
+
+**Canon cites IDs; `frameworks/` holds the text.** No URLs, no framework prose, no version numbers in
+a canon file — those live in the framework doc the ID resolves to. Format, lineage table, and
+authoring rules: `memory/policy/frameworks/README.md`. Two things that fail CI: a framework doc
+missing from the lineage table, and a canon citation whose ID resolves to nothing (check 8).
+
+**Every framework doc carries `**Identity:**` and `**Verified:**` lines.** Security frameworks move
+faster than tools do — an unversioned framework doc reads as current and silently isn't. Facts that
+can't be confirmed against the publisher are written `unverified`, never guessed.
 
 ---
 

@@ -93,6 +93,31 @@ manifest and model card — and the license must permit the intended use (includ
 the plan). *Why: an incompatible or unrecorded upstream license makes your model legally unshippable, no
 matter how good it is.* Pretrained **data** licensing and provenance follow `data-governance.md`.
 
+## Models you did not train
+
+**M14 — A third-party model reached over an API is a dependency with a version, not a constant.**
+Record the provider, the exact model identifier, and the version or snapshot date in the run manifest —
+`gpt-style-model` is not a version. Pin to a dated snapshot where the provider offers one, because
+silent model updates change behaviour, cost, and eval results underneath you. Provider terms are part of
+the record: what may be sent (`security.md` `S7` — sending data to an inference API is publishing it),
+what may be retained, and whether outputs may be used to train. *Why: an unpinned third-party model makes
+every evaluation unreproducible and every regression undiagnosable — you cannot tell "our change broke
+it" from "their model moved."*
+
+**M15 — Prompts and tool definitions are versioned artifacts, and changing one is a model change.** A
+system prompt, a prompt template, a tool schema, and a retrieval configuration each materially determine
+behaviour. They are versioned in git, referenced by version in the run manifest, and a change to any of
+them requires the same evaluation before release that a weight change does (M8–M10). Provenance follows
+`ai-security.md` `AI8`. *Why: teams version weights meticulously and edit the system prompt in
+production, which is how a "no-code-change" incident happens.*
+
+**M16 — Agentic systems are evaluated as trajectories, not just outputs, before release.** For any
+system that plans or calls tools, the pre-release evaluation covers task success, tool-call correctness,
+and behaviour under adversarial input — a recorded red-team run (`llm-red-teaming`) is part of the
+release evidence, not a follow-up. The methods live in `agent-evaluation`; the obligation lives here.
+*Why: an agent can produce good-looking final answers via a trajectory that leaked data, called the wrong
+tool, or succeeded by accident — and only the trajectory shows it. [SSDF 800-218A]*
+
 ## Recording a judgment call
 
 Most of the above is prescriptive — follow it. When a call is genuinely irreducible (shipping a model
