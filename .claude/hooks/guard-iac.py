@@ -25,9 +25,22 @@ import sys
 # Ports where an open-to-the-world ingress rule is essentially never intended.
 SENSITIVE_PORTS = {22, 23, 445, 1433, 1521, 3306, 3389, 5432, 5439, 6379, 9200, 27017}
 
-OPEN_CIDR = re.compile(r"cidr_blocks\s*=\s*\[[^\]]*[\"']0\.0\.0\.0/0[\"']", re.S)
+# Open-to-the-world, in every spelling Terraform accepts: the legacy `cidr_blocks` list, the
+# modern `aws_vpc_security_group_ingress_rule` scalars (`cidr_ipv4`/`cidr_ipv6`), and IPv6's `::/0`
+# — which is just as open as 0.0.0.0/0 and was invisible before.
+OPEN_CIDR = re.compile(
+    r"(cidr_blocks|ipv6_cidr_blocks|cidr_ipv4|cidr_ipv6)\s*=\s*"
+    r"(\[[^\]]*)?[\"'](0\.0\.0\.0/0|::/0)[\"']",
+    re.S,
+)
 FROM_PORT = re.compile(r"from_port\s*=\s*(\d+)")
-INGRESS_BLOCK = re.compile(r"ingress\s*\{[^}]*\}", re.S)
+TO_PORT = re.compile(r"to_port\s*=\s*(\d+)")
+# Both the inline `ingress {}` block and the standalone resource the AWS provider now recommends.
+INGRESS_BLOCK = re.compile(
+    r"(?:ingress\s*\{[^}]*\}"
+    r"|resource\s+\"aws_vpc_security_group_ingress_rule\"[^{]*\{(?:[^{}]|\{[^{}]*\})*\})",
+    re.S,
+)
 
 CHECKS = [
     (
@@ -125,15 +138,29 @@ EXCEPTION = re.compile(r"#\s*iac-exception:\s*([A-Z]+\d+)")
 
 
 def open_to_world_on_sensitive_port(text: str) -> str | None:
+    """Only `from_port` was examined before, so a RANGE hid the problem: `from_port = 0,
+    to_port = 65535` open to the world passed cleanly while the narrow port-22 rule was blocked —
+    the most permissive rule was the one that got through. Test the whole range, and treat a very
+    wide range open to the internet as a finding in its own right."""
     for block in INGRESS_BLOCK.findall(text):
-        if not OPEN_CIDR.search(block):
+        if isinstance(block, tuple):  # findall with groups
+            block = next((b for b in block if b), "")
+        if not block or not OPEN_CIDR.search(block):
             continue
-        ports = [int(p) for p in FROM_PORT.findall(block)]
-        hits = [p for p in ports if p in SENSITIVE_PORTS]
-        if hits:
-            return ", ".join(str(p) for p in sorted(set(hits)))
-        if not ports:
+        froms = [int(p) for p in FROM_PORT.findall(block)]
+        tos = [int(p) for p in TO_PORT.findall(block)]
+        if not froms:
             return "unspecified"
+        lo = min(froms)
+        hi = max(tos) if tos else lo
+        if hi < lo:
+            lo, hi = hi, lo
+        hits = sorted({p for p in SENSITIVE_PORTS if lo <= p <= hi})
+        if hits:
+            rng = f"{lo}-{hi}" if hi != lo else str(lo)
+            return f"{', '.join(map(str, hits))} (rule covers {rng})"
+        if hi - lo >= 1024:
+            return f"a {hi - lo + 1}-port range ({lo}-{hi})"
     return None
 
 

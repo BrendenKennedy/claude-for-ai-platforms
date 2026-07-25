@@ -72,9 +72,29 @@ def main() -> int:
     if not (is_mcp or is_settings or is_agent):
         return 0
 
-    text = (tool_input.get("content") or "") + (tool_input.get("new_string") or "")
+    # An Edit carries only a hunk, so `"allow"` and `"mcpServers"` won't appear in it and the ASK
+    # tier silently never fired — meaning the agent could widen its own permission surface with no
+    # human in the loop, in every mode including bypassPermissions. That is precisely what S8 exists
+    # to prevent. Reconstruct the post-edit file so the checks see the real content.
+    hunk = tool_input.get("new_string") or ""
+    text = tool_input.get("content") or ""
+    if not text and hunk:
+        old = tool_input.get("old_string") or ""
+        try:
+            current = Path(path).read_text(errors="replace")
+            text = (
+                current.replace(old, hunk, 1)
+                if old and old in current
+                else current + hunk
+            )
+        except Exception:
+            text = hunk
     if not text:
         return 0
+
+    # These files are edited rarely and always deliberately. If this is an edit to one of them and
+    # the reconstruction didn't clearly show us the governed keys, ask anyway rather than assume.
+    edit_without_context = bool(hunk) and not tool_input.get("content")
 
     # --- BLOCK tier: unpinnable server references -----------------------------------------
     if is_mcp or is_settings:
@@ -108,11 +128,23 @@ def main() -> int:
             "and allow list are human-owned. Confirm the change is what you intended."
         )
 
-    if is_agent and re.search(r"^tools:.*\b(Write|Edit|Bash)\b", text, re.M):
+    # Tools appear both inline (`tools: Read, Bash`) and as a YAML list. `NotebookEdit` contains no
+    # word boundary before `Edit`, so \b missed it; match the token set explicitly instead.
+    if is_agent and re.search(r"(?ms)^tools:\s*(?:[^\n]*|(?:\n\s+-[^\n]*)+)", text):
+        block = re.search(r"(?ms)^tools:\s*(?:[^\n]*|(?:\n\s+-[^\n]*)+)", text).group(0)
+        if re.search(r"\b(Write|Edit|Bash|NotebookEdit)\b|NotebookEdit", block):
+            return ask(
+                f"This grants write or shell tools to the subagent in {name}. ai-security.md AI2 "
+                "(least agency): confirm this agent needs them, and that the grant is recorded in "
+                ".claude/memory/process/agent-authority.md."
+            )
+
+    # Reconstruction failed and this is a governed file — ask rather than assume it was benign.
+    if edit_without_context and (is_mcp or is_settings):
         return ask(
-            f"This grants write or shell tools to the subagent in {name}. ai-security.md AI2 "
-            "(least agency): confirm this agent needs them, and that the grant is recorded in "
-            ".claude/memory/process/agent-authority.md."
+            f"This edits {name}, which governs the agent's own tool and permission surface, and the "
+            "post-edit content could not be resolved to check it. security.md S8 / supply-chain.md "
+            "C8: confirm the change deliberately."
         )
 
     return 0

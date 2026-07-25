@@ -21,6 +21,7 @@ Fail-open on anything unparseable: a guard that bricks the session is worse than
 import json
 import re
 import sys
+from pathlib import Path
 
 K8S_WORKLOADS = (
     "Deployment",
@@ -90,8 +91,23 @@ CHECKS = [
     (
         "P4",
         "mutable image tag `:latest`",
-        re.compile(KEY + r"image:\s*[^\s,}]+:latest(?:\s|,|\}|$)", re.M),
+        # Quoting an image is ordinary YAML, and `image: "nginx:latest"` evaded the original
+        # terminator class. Allow an optional closing quote, and catch an untagged image too.
+        # NOTE: full P4 (digest-pinned) is deliberately NOT enforced here. That belongs to the CI
+        # and admission layers — `templates/policies/conftest/platform.rego` requires `@sha256:`
+        # and Kyverno enforces it at admission. This layer catches the unambiguous accident;
+        # blocking every tag-pinned dev overlay at edit time is friction without a security gain,
+        # and a guard that fights ordinary work gets deleted (security.md S1).
+        re.compile(
+            KEY + r"""image:\s*["']?[^\s,}"']+:latest["']?(?:\s|,|\}|$)""", re.M
+        ),
         "Pin by digest: image: registry/name@sha256:...",
+    ),
+    (
+        "P4",
+        "untagged image (resolves to :latest)",
+        re.compile(KEY + r"""image:\s*["']?[^\s,}"':@]+["']?\s*$""", re.M),
+        "An untagged image resolves to :latest. Pin by digest: registry/name@sha256:...",
     ),
 ]
 
@@ -108,7 +124,39 @@ EXCEPTION = re.compile(r"#\s*platform-security-exception:\s*([A-Z]+\d+)")
 
 
 def kinds(text: str) -> set[str]:
-    return set(re.findall(r"^\s*kind:\s*([A-Za-z]+)", text, re.M))
+    # Quoted values are legal YAML: `kind: "Secret"` must not skip the Secret checks.
+    return set(re.findall(r"""(?m)^\s*kind:\s*["']?([A-Za-z]+)""", text))
+
+
+def resolved_text(tool_input: dict) -> tuple[str, bool]:
+    """Return (text_to_scan, is_whole_file).
+
+    A Write carries the whole file in `content`. An **Edit carries only a hunk** —
+    `old_string`/`new_string` — which is how a manifest is normally changed, and scanning the hunk
+    alone means the `apiVersion:`/`kind:` gate never matches and every check silently skips. That
+    made this guard blind to the common case.
+
+    So for an Edit: read the file and apply the replacement, giving the checks the post-edit manifest
+    they need. If the file can't be read, fall back to the hunk and say so — the caller then runs
+    only the pattern checks, because a whole-file *absence* check (P3) cannot be judged from a hunk.
+    """
+    content = tool_input.get("content")
+    if content:
+        return content, True
+
+    new = tool_input.get("new_string") or ""
+    if not new:
+        return "", False
+
+    old = tool_input.get("old_string") or ""
+    try:
+        current = Path(tool_input.get("file_path", "")).read_text(errors="replace")
+    except Exception:
+        return new, False
+    if old and old in current:
+        return current.replace(old, new, 1), True
+    # Insert-only edit, or a stale anchor: append so the new content is at least seen in context.
+    return current + "\n" + new, True
 
 
 def main() -> int:
@@ -122,9 +170,20 @@ def main() -> int:
     if not path.endswith((".yaml", ".yml")):
         return 0
 
-    text = (tool_input.get("content") or "") + (tool_input.get("new_string") or "")
-    if not text or "apiVersion:" not in text or "kind:" not in text:
-        return 0  # not a Kubernetes resource
+    try:
+        text, whole_file = resolved_text(tool_input)
+    except Exception:
+        return 0
+    if not text:
+        return 0
+
+    # A reconstructed file carries the anchors; a bare hunk won't. Scan a hunk anyway when the path
+    # looks like a manifest — the individual patterns (privileged, hostPath, wildcard RBAC) are
+    # specific enough that a false positive on unrelated YAML is unlikely, and missing an Edit is
+    # worse than an occasional over-catch that the exception marker can clear.
+    looks_like_manifest = "apiVersion:" in text and "kind:" in text
+    if not looks_like_manifest and whole_file:
+        return 0  # a real file that isn't a Kubernetes resource
 
     excused = set(EXCEPTION.findall(text))
     found: list[tuple[str, str, str]] = []
@@ -156,14 +215,18 @@ def main() -> int:
             )
         )
 
-    # Workloads must declare limits. Heuristic, deliberately loose: only fires when the manifest
-    # clearly defines containers and mentions no limits at all.
+    # Workloads must declare limits. This is an ABSENCE check, so it needs the whole file — a hunk
+    # legitimately won't contain `limits:` and flagging it would block ordinary edits.
+    # `limits:` is matched anywhere, not line-anchored, because flow style
+    # (`resources: {limits: {cpu: "1"}}`) is valid YAML and the anchored form blocked compliant
+    # manifests — a guard that rejects correct input is a guard people delete.
     if (
-        "P3" not in excused
+        whole_file
+        and "P3" not in excused
         and present & set(K8S_WORKLOADS)
-        and re.search(r"^\s*containers:", text, re.M)
+        and re.search(r"(?m)^\s*containers:", text)
     ):
-        if not re.search(r"^\s*limits:", text, re.M):
+        if not re.search(r"[\s{,]limits:", text):
             found.append(
                 (
                     "P3",

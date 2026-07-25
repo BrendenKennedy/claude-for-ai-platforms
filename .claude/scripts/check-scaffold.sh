@@ -255,11 +255,25 @@ elif frameworks.is_dir():
 if frameworks.is_dir():
     corpus = "\n".join(p.read_text() for p in frameworks.glob("*.md"))
     # Only ids with a stable, greppable shape. Prose citations ([SRE], [PSS]) are not checked.
-    CITED = re.compile(r"\[(LLM\d{2}|ASI\d{2}|CIS [\d.]+|SLSA[^\]]*|CICD-SEC-\d+)\]")
+    CITED = re.compile(r"\[(LLM\d{2}|ASI\d{2}|CIS [\d.x–\-]+|SLSA[^\]]*|CICD-SEC-\d+)\]")
+    cis_doc = (frameworks / "cis-kubernetes.md")
+    cis_text = cis_doc.read_text() if cis_doc.is_file() else ""
     for f in sorted(policy.glob("*.md")):
         for cite in {m.group(1) for m in CITED.finditer(f.read_text())}:
-            key = cite.split()[0] if cite.startswith("CIS") else cite
-            if key not in corpus:
+            if cite.startswith("CIS"):
+                # `cite.split()[0]` reduced every CIS citation to the bare string "CIS", which is
+                # present unconditionally — so `[CIS 99.99]` resolved and the check was vacuous for
+                # the entire CIS family. Canon cites at SECTION granularity (`[CIS 5.2]`, `[CIS 5.x]`,
+                # `[CIS 1–3]`), and the framework doc documents sections 1-5, so verify the section
+                # numbers exist. Narrower than a per-control check and honestly so: it catches a
+                # citation to a section that doesn't exist, not a wrong control within one.
+                sections = {int(n) for n in re.findall(r"\d+", cite.split(None, 1)[1])[:1] or []}
+                sections |= {int(n) for n in re.findall(r"[–-](\d+)", cite)}
+                unknown = {s for s in sections if not re.search(rf"(?m)^\|\s*{s}\s*\||§{s}", cis_text)}
+                if unknown or not sections:
+                    print(f"FAIL  {f.name} cites [{cite}] but cis-kubernetes.md documents no such section")
+                    bad += 1
+            elif cite not in corpus:
                 print(f"FAIL  {f.name} cites [{cite}] but no frameworks/ doc mentions it")
                 bad += 1
 

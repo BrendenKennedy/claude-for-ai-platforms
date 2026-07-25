@@ -72,23 +72,40 @@ HIDDEN_CHARS = re.compile(r"[​-‏‪-‮⁦-⁩﻿\U000e0000-\U000e007f]")
 MAX_SCAN = 400_000  # bytes; beyond this, scan the head only
 
 
-def extract_text(payload: dict) -> str:
-    resp = payload.get("tool_response")
+TEXT_KEYS = ("content", "text", "result", "output", "body", "stdout")
+
+
+def extract_text(resp, depth: int = 0) -> str:
+    """Pull the human-readable payload out of a tool_response of unknown shape.
+
+    Read's response nests the file body (e.g. `{"file": {"content": ...}}`), so a top-level key
+    lookup missed it and fell through to `json.dumps`. That escaped every newline to a literal
+    backslash-n, which killed all the `^`-anchored and `\\b`-prefixed patterns — a payload at the
+    start of a line, which is where real indirect-injection payloads sit, scanned as clean.
+    So: walk nested structures for the first string under a known text key, and only then fall back.
+    """
+    if depth > 6:
+        return ""
     if isinstance(resp, str):
         return resp
     if isinstance(resp, dict):
-        for key in ("content", "text", "result", "output", "body"):
+        for key in TEXT_KEYS:
             v = resp.get(key)
-            if isinstance(v, str):
+            if isinstance(v, str) and v:
                 return v
-        return json.dumps(resp)[:MAX_SCAN]
+        for v in resp.values():  # recurse: {"file": {"content": ...}}
+            if isinstance(v, (dict, list)):
+                found = extract_text(v, depth + 1)
+                if found:
+                    return found
+        # Last resort: stringify, then undo the escaping so line anchors still work.
+        return json.dumps(resp).replace("\\n", "\n").replace("\\t", "\t")
     if isinstance(resp, list):
         parts = []
         for item in resp:
-            if isinstance(item, str):
-                parts.append(item)
-            elif isinstance(item, dict) and isinstance(item.get("text"), str):
-                parts.append(item["text"])
+            got = extract_text(item, depth + 1)
+            if got:
+                parts.append(got)
         return "\n".join(parts)
     return ""
 
@@ -100,7 +117,7 @@ def main() -> int:
         return 0
 
     try:
-        text = extract_text(payload)[:MAX_SCAN]
+        text = extract_text(payload.get("tool_response"))[:MAX_SCAN]
     except Exception:
         return 0
     if not text or len(text) < 40:
