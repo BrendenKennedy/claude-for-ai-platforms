@@ -52,7 +52,12 @@ fi
 
 # B4) Shell reads of cluster/cloud credential material — same rule as .env (security.md S3): a
 #     secret echoed into the transcript has leaked. `kubectl get secret -o yaml` prints it in full.
-if printf '%s' "$cmd" | grep -Eq '(^|[;&|`([:space:]])kubectl[[:space:]][^;|&]*get[[:space:]][^;|&]*secret[^;|&]*(-o|--output)[[:space:]]*(=)?[[:space:]]*(yaml|json|jsonpath|go-template)'; then
+# Order-independent: the original required `-o` to appear AFTER the word `secret`, so
+# `kubectl get -o yaml secret db` — ordinary, and equally revealing — walked straight through.
+# `--template` was missing from the format list for the same reason. Two greps ANDed instead of one
+# positional pattern: does this touch a Secret, and does it ask for a full-content output format?
+if printf '%s' "$cmd" | grep -Eq '(^|[;&|`([:space:]])kubectl[[:space:]][^;|&]*(get|describe)[^;|&]*secret' \
+   && printf '%s' "$cmd" | grep -Eq '(-o|--output)[[:space:]]*=?[[:space:]]*(yaml|json|jsonpath|go-template|custom-columns)|--template'; then
   echo "BLOCKED: refusing to print Secret contents into the transcript (security.md S3 - a secret echoed into a stored transcript has leaked). Use 'kubectl get secret <name>' for metadata only, or read the value from the secret manager out of band." >&2
   exit 2
 fi

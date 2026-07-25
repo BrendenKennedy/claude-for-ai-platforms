@@ -124,7 +124,69 @@ confirmed. The Azure Functions timeout ceiling could not be confirmed and is sta
   `P3` meaning "phase 3" would silently resolve to a platform rule. Worth knowing; not worth a rule
   renumbering.
 
-### Still open
+## Increment 4 — the review agent's findings (v1.3.0)
 
-- **The GitHub repo still does not exist** (403, session scope). Unchanged across all three
-  increments.
+I tagged v1.2.0 "dogfood pass complete" while the `security-reviewer` dispatch was still running.
+Its findings landed after the tag, and one invalidated that release's central claim. **The v1.2.0
+framing was premature and the changelog now says so.**
+
+### The headline defect — the guards were blind to `Edit`
+
+`guard-k8s-manifests.py` and `guard-agent-config.py` scanned `content` + `new_string` and then gated
+on anchors a diff hunk never contains (`apiVersion:`/`kind:`; the literal `"allow"`). A hunk carries
+neither, so **every check silently skipped**. An `Edit` inserting `privileged: true` exited 0. An
+`Edit` widening `permissions.allow` exited 0 with no ask — in every mode including
+`bypassPermissions`, where that ask is the only remaining human in the loop. Only whole-file `Write`
+was ever protected, and a manifest is normally changed by `Edit`.
+
+**Found by the agent, not by me**, and my own `check-hooks.py` reported green throughout because all
+56 cases used `Write`. That is the more durable lesson than the defect: coverage counted in *cases*
+rather than in *tool paths* measures nothing. The suite is now 87 cases with an `Edit`-shaped helper
+and real on-disk fixtures; the five hooks that had zero cases now have block/allow/fail-open
+coverage, which makes `settings.json`'s coverage claim true for the first time.
+
+Both defects were verified broken by hand before the fix and **verified fixed by hand after** — not
+only through the suite that missed them:
+
+```
+1) Edit inserting `privileged: true`  -> exit=2  (was 0, silent)   P1 privileged container
+2) Edit widening permissions.allow    -> exit=0, ask=True (was 0, no ask)
+```
+
+### Scoreboard: two mine, six the agent's
+
+Mine (increment 3): the allow-list breadth, and check 9's swallowed exit status. The agent's: the
+Edit-path blindness in both hooks, the `security-ci.yml` cluster (unpinned scanners, unused
+`security-events: write`, missing `persist-credentials: false`, uninstalled `conftest` → exit 127),
+the `guard-iac.py` port-**range** gap (`0`–`65535` open to the world passed while a narrow port-22
+rule was blocked — strictly worse against the worse rule), the `scan-untrusted-content.py` Read-path
+`json.dumps` escaping that killed every `^`-anchored pattern, the `validate-bash.sh` B4 ordering
+evasion, and check 8b being vacuous for CIS (`cite.split()[0]` reduced everything to `"CIS"`).
+
+Reviewing my own diff found the things I already knew to look for. Dispatching a reviewer found the
+class of thing I had a blind spot for — an untested code path — which is exactly the argument for
+the agent existing.
+
+### Residual, unverified — stated, not dropped
+
+- **Compound-command prefix matching.** Whether Claude Code splits `trivy fs . && …` before matching
+  `Bash(trivy fs:*)`. Needs a live permission-system test. If it does not split, the allow-list
+  narrowing is necessary but **not sufficient**. Recorded in `settings.json` in those words.
+- **`kustomize build` / `kubectl kustomize`** take a remote URL and can exec a plugin under explicit
+  alpha flags. Kept — rendering is the core workflow — but the comment says so now.
+- Whether another hook shares the Edit-path assumption in a form the 87 cases don't reach.
+
+### A false positive I chose to keep
+
+The order-independent B4 fix in `validate-bash.sh` now matches a `Bash` command whose text merely
+*describes* a Secret read — it blocked writing the changelog entry about itself via a heredoc.
+Narrowing it to exclude prose would reintroduce the evasion. Documented in the changelog with the
+workaround (use the file tools) rather than weakened. This is the one place in the session where I
+accepted a false positive instead of fixing it, and it should be revisited if it fires again.
+
+## Still open
+
+- **The GitHub repo still does not exist** (403, session scope). Unchanged across all four
+  increments. The user needs to create `claude-for-ai-platform`, then:
+  `git remote add fork <url> && git push fork claude/ai-platform-security-fork-d8z8ha:main`
+  and `git remote add upstream <parent-url>` to keep DS improvements pullable.

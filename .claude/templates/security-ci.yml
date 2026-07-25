@@ -24,28 +24,50 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      security-events: write
+      # No `security-events: write` here — nothing in this job uploads SARIF, and this is the job
+      # that runs repository-supplied code. Add it back only alongside a real upload-sarif step.
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with: { fetch-depth: 0 } # gitleaks needs history
+        with:
+          fetch-depth: 0 # gitleaks needs history
+          # This job then runs PR-supplied code (semgrep rules, checkov, the repo's own configs).
+          # Leaving the token in .git/config hands it to anything that reads the checkout.
+          persist-credentials: false
 
       # A committed secret needs rotation, not a warning. Always blocks.
       - name: secret scan
         uses: gitleaks/gitleaks-action@83373cf2f8c4db6e24b41c1a9b086bb9619e9cd3 # v2.3.7
         env: { GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}" }
 
+      # CHANGEME: pin every scanner to a version, the same way the actions above are pinned by SHA.
+      # `pipx run semgrep` resolves to whatever PyPI serves at run time, and `--config auto` fetches
+      # the ruleset over the network on every run — both execute with this job's token and the
+      # checked-out tree (supply-chain.md C1, CICD-SEC-3). Pin the tool AND the rules.
       - name: SAST
-        run: pipx run semgrep ci --config auto
+        run: pipx run --spec semgrep==CHANGEME-VERSION semgrep scan --config p/ci --error
         continue-on-error: true # report tier: low-confidence rules are noise if they block
 
       # Manifest + IaC misconfiguration. Blocks — these have owners and fixes.
       - name: IaC and manifest config
         run: |
-          pipx run checkov -d . --quiet --compact --framework terraform kubernetes || exit 1
+          pipx run --spec checkov==CHANGEME-VERSION checkov -d . \
+            --quiet --compact --framework terraform kubernetes || exit 1
 
       - name: policy tests
         run: |
           if [ -d policies ]; then
+            # conftest is not preinstalled on the runner — without this the step exits 127 the
+            # first time a project actually has policies. Pin the version and verify the checksum
+            # (C1, C3): a scanner fetched over the network is a dependency like any other.
+            CONFTEST_VERSION=CHANGEME-VERSION
+            curl -sSLo conftest.tgz \
+              "https://github.com/open-policy-agent/conftest/releases/download/v${CONFTEST_VERSION}/conftest_${CONFTEST_VERSION}_Linux_x86_64.tar.gz"
+            curl -sSLo checksums.txt \
+              "https://github.com/open-policy-agent/conftest/releases/download/v${CONFTEST_VERSION}/checksums.txt"
+            grep "conftest_${CONFTEST_VERSION}_Linux_x86_64.tar.gz" checksums.txt \
+              | awk '{print $1"  conftest.tgz"}' | sha256sum -c - || exit 1
+            tar xzf conftest.tgz conftest && sudo mv conftest /usr/local/bin/
+
             conftest verify -p policies/                      # do the policies still reject bad input?
             for o in deploy/overlays/*/; do
               [ -d "$o" ] || continue
@@ -59,6 +81,7 @@ jobs:
     permissions: { contents: read }
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with: { persist-credentials: false }
       # --ignore-unfixed on purpose: a CVE with no upstream patch is a risk-register entry, not a
       # build failure. Blocking on unfixable findings is how pipelines lose legitimacy.
       - name: filesystem + dependency scan
@@ -75,6 +98,7 @@ jobs:
     permissions: { contents: read }
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with: { persist-credentials: false }
       - uses: astral-sh/setup-uv@f94ec6bedd8674c4426838e6b50417d36b6ab231 # v5.3.1
       - run: uv sync --frozen
       # Safety suite blocks ABSOLUTELY: any regression means a previously-fixed red-team finding
@@ -96,6 +120,7 @@ jobs:
       attestations: write # SLSA build provenance, platform-signed (C4)
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with: { persist-credentials: false }
 
       - name: build
         id: build

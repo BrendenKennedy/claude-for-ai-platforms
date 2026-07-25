@@ -13,6 +13,122 @@ versions follow [SemVer](https://semver.org/) per the stability contract in
 > and the stamp's commit **sha** remains the precise reference (`/upgrade`'s three-way logic
 > keys on the sha, not the number).
 
+## [1.3.0] — 2026-07-25
+
+**The second half of the dogfood pass — what the review agent found that I didn't.** v1.2.0 was
+tagged "dogfood pass" while the `security-reviewer` dispatch was still running. Its findings landed
+after the tag, and one of them invalidates that release's central claim: the guard hooks were not
+enforcing on the path they are used through most. **v1.2.0's "dogfood complete" framing was
+premature.** This release is the completion.
+
+Minor rather than patch because behaviour changes for anyone already installed: guards now fire on
+a path where they previously never did, and a narrower allow list means more permission prompts.
+
+### Fixed — the headline defect
+
+- **`guard-k8s-manifests.py` and `guard-agent-config.py` were blind to the `Edit` path entirely.**
+  Both scanned `content` (whole-file `Write`) concatenated with `new_string`, then gated on anchors a
+  diff hunk never contains — `apiVersion:`/`kind:` for the manifest guard, the literal `"allow"` /
+  `"mcpServers"` for the agent-config guard. A hunk carries neither, so **every check silently
+  skipped**. Editing a manifest to insert `privileged: true` exited 0 with no block. Editing
+  `settings.json` to add an entry to `permissions.allow` exited 0 with no ask — **in every permission
+  mode, including `bypassPermissions`**, which is the one mode where the ask is the only remaining
+  human in the loop. Only whole-file `Write` was ever protected, and a manifest is normally changed
+  by `Edit`.
+
+  Both hooks now reconstruct the post-edit file (read current contents, apply the replacement) and
+  scan that. `guard-agent-config.py` asks rather than allows when reconstruction fails, because the
+  fail-open default on a self-widening check is the wrong direction.
+
+  This is the failure this repo's own doctrine names — *"a control is a mechanism, not a sentence"* —
+  sitting in the enforcement layer itself, shipped, for the life of the fork.
+
+- **`check-hooks.py` reported green throughout, because all 56 cases used `Write`.** The suite that
+  existed to prove the guards worked was structurally incapable of seeing this. That is the more
+  durable lesson than the defect: coverage counted in cases, not in *paths*, measures nothing. The
+  suite is now **87 cases** and includes an `Edit`-shaped payload helper, real on-disk fixtures, and
+  explicit Edit-path regressions for both defects. Five hooks that had **zero** cases now have
+  block/allow/fail-open coverage, which makes `settings.json`'s coverage claim true for the first
+  time.
+
+### Fixed — other guard defects
+
+- `guard-k8s-manifests.py`: quoted `":latest"` evaded the tag check; a wholly untagged image was not
+  caught at all; `kind: "Secret"` (legal YAML) skipped the Secret checks; and flow-style
+  `resources: {limits: …}` produced a **false positive on a compliant manifest** — the failure mode
+  that gets a guard deleted rather than fixed.
+- `guard-iac.py`: port **ranges** were untested, so `from_port = 0, to_port = 65535` open to
+  `0.0.0.0/0` passed while a narrow port-22 rule was blocked — the check was strictly worse against
+  the worse rule. IPv6 `::/0` and the modern `aws_vpc_security_group_ingress_rule` form are now
+  matched too.
+- `scan-untrusted-content.py`: `Read` nests the file body (`{"file": {"content": …}}`), so a
+  top-level key lookup missed it and fell through to `json.dumps` — which escaped every newline to a
+  literal `\n` and killed all `^`-anchored patterns. Payloads at the start of a line, which is where
+  real indirect injection sits, scanned clean. Now walks nested structures.
+- `validate-bash.sh` B4: the Secret-read block required the output flag to appear *after* the word
+  `secret`, so putting the flag first evaded it. Made order-independent, and `--template` added to
+  the output-format alternation.
+- `check-scaffold.sh` check 8b was **vacuous for CIS citations** — `cite.split()[0]` reduced every
+  reference to the string `CIS`, so a fabricated section number resolved. Now verified against the
+  framework doc's actual sections.
+
+### Changed — `templates/security-ci.yml`, the exemplar every project inherits
+
+Four defects in the file meant to *demonstrate* supply-chain discipline:
+
+- **Scanners were unpinned** in a workflow that pins its actions by commit SHA. `pipx run semgrep`
+  and `pipx run checkov` resolve to whatever PyPI serves at run time, and `--config auto` fetched the
+  ruleset over the network on every run — all executing with the job's token and the checked-out
+  tree. Now `--spec <tool>==<version>` with a fixed ruleset, contradiction with `C1` removed.
+- **`security-events: write` was granted to a job that uploads no SARIF** — an unused write grant on
+  the one job that runs repository-supplied code. Dropped.
+- **`persist-credentials: false`** added to all four checkouts; without it the token sits in
+  `.git/config` for anything the job subsequently runs to read.
+- **`conftest` was never installed**, so the policy step exited 127 the first time a project actually
+  had a `policies/` directory. Install added, pinned and **checksum-verified against the published
+  `checksums.txt`** (`C1`, `C3`) — a scanner fetched over the network is a dependency like any other.
+
+### Changed — allow-list narrowing rule
+
+**The rule, now stated in `settings.json` itself: an entry stays only if it is non-mutating under
+every flag it accepts.** A permission prefix matches the start of the command string and cannot
+exclude a flag that appears later, so a bare tool name grants the whole binary.
+
+Scoped: `trivy image|fs|config` (bare permits `trivy plugin install` — download and execute),
+`conftest test|verify` (bare permits `conftest push` — registry egress, `S7`), `syft scan` (bare
+permits `syft attest` — signs and pushes), `gitleaks detect --redact` (without it, findings print
+secret **values** into the transcript, `S3`).
+
+**Removed entirely, because no prefix can make them safe:** `semgrep` (`--autofix` rewrites source,
+bypassing every Edit/Write guard), `helm template` (`--post-renderer` executes an arbitrary binary),
+`checkov` (`--external-checks-git` clones a repo and imports its Python), and `terraform plan` /
+`tofu plan` — which evaluates `data "external"` (runs a local program) and loads provider binaries,
+so it is **not read-only** in a repo with attacker-authored `.tf`. These now go through the normal
+permission flow: a prompt, not a block. Losing a silent convenience is the right trade for a tool
+that can execute or mutate.
+
+### Unverified — stated rather than dropped
+
+Three items could not be settled from here. They are recorded in `settings.json` and the risk
+register rather than quietly resolved:
+
+- **Compound-command prefix matching** — whether Claude Code splits `trivy fs . && <other command>`
+  before prefix-matching `Bash(trivy fs:*)`. Needs a live permission-system test. If it does not
+  split, the narrowing above is necessary but **not sufficient**.
+- **`kustomize build` / `kubectl kustomize`** accept a remote URL and, with explicit alpha flags, can
+  exec a plugin. **Kept** — rendering is the core workflow and the exec path needs deliberate flags —
+  but the comment now says so instead of claiming read-only.
+- Whether any *other* hook shares the Edit-path assumption in a form the 87 cases don't reach. The
+  five previously-uncovered hooks now have cases; that is evidence, not proof.
+
+### Known false positive
+
+`validate-bash.sh` B4 now matches an ordinary `Bash` command whose text merely *describes* a Secret
+read — which blocked writing this changelog entry via a shell heredoc. The rule is right and the
+match is a string match; documenting it is the honest option, since narrowing it to exclude prose
+would reintroduce the evasion it was fixed for. Use the file tools rather than a heredoc when
+writing about it.
+
 ## [1.2.0] — 2026-07-25
 
 **Dogfood pass.** The scaffold's own review tooling, verification scripts, and policies pointed at

@@ -394,6 +394,25 @@ run(
     "block",
     "printing Secret to transcript",
 )
+# The original pattern was positional — it required -o AFTER the word `secret`, so these evaded.
+run(
+    "validate-bash.sh",
+    bash("kubectl get -o yaml secret db"),
+    "block",
+    "flag BEFORE the noun still blocks (was evading)",
+)
+run(
+    "validate-bash.sh",
+    bash("kubectl get secret db --template '{{.data}}'"),
+    "block",
+    "--template is a full-content format too",
+)
+run(
+    "validate-bash.sh",
+    bash("kubectl get secret db"),
+    "allow",
+    "metadata-only Secret listing is fine",
+)
 run("validate-bash.sh", bash("cat ~/.kube/config"), "block", "reading kubeconfig")
 run(
     "validate-bash.sh",
