@@ -6,8 +6,8 @@
 
 ## Live
 
-| # | Risk | Likelihood | Impact | Mitigation | Status |
-|---|------|------------|--------|------------|--------|
+| # | Risk | Source | Likelihood | Impact | Mitigation | Owner | Review by | Status |
+|---|------|--------|------------|--------|------------|-------|-----------|--------|
 
 ## Retired
 

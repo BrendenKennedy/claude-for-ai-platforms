@@ -16,3 +16,21 @@ repos:
     rev: v8.18.4
     hooks:
       - id: gitleaks # secrets never reach a commit (guard-secrets covers the agent path; this covers yours)
+  - repo: https://github.com/bridgecrewio/checkov
+    rev: 3.2.334
+    hooks:
+      - id: checkov # IaC + manifest misconfiguration (guard-iac covers the agent path; this covers yours)
+        args: [--quiet, --compact, --framework, terraform, kubernetes]
+  - repo: https://github.com/adrienverge/yamllint
+    rev: v1.35.1
+    hooks:
+      - id: yamllint
+        args: [-d, relaxed]
+  - repo: local
+    hooks:
+      - id: check-hooks
+        name: guard hooks still block, allow, and fail open
+        entry: python3 .claude/scripts/check-hooks.py
+        language: system
+        pass_filenames: false
+        files: ^\.claude/hooks/

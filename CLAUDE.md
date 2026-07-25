@@ -4,12 +4,17 @@ The map of the Claude configuration here: what lives under `.claude/` and when t
 Depth deliberately lives in the skills/docs this points to — skills auto-surface by description;
 this file is for the always-on conventions and registration. Project details: the skills + `README.md`.
 
-> **claude-for-datascience** — a data-science scaffold; archetypes (CV · tabular · time-series ·
-> LLM · …) are lanes, flipped by what you're building. One-time setup, in order: **`/intake`**
-> (the "what are we building?" interview → `memory/process/project-definition.md`, then the stack →
-> `settings.json` `skillOverrides` + placeholders), then **`/bootstrap`** (builds the `conf/` tree +
-> `train.py`/`eval.py` the skills assume — without it the skills document a project that doesn't
-> exist). **`/setup`** runs the whole sequence + git checkpoints + the P1 `/gate` in one session.
+> **claude-for-ai-platform** — a scaffold for building **AI platforms securely**: agent and LLM
+> security, Kubernetes, SRE, observability, identity, and supply chain, with the data-science
+> fundamentals that eval work depends on kept underneath. Forked from `claude-for-datascience`.
+> Archetypes (agent platform · RAG service · inference platform · eval harness · MLOps platform ·
+> and the inherited cv / tabular / time-series / LLM model-building lanes) are lanes, flipped by
+> what you're building. One-time setup, in order: **`/intake`** (the "what are we building?"
+> interview + the **security-posture interview** → `memory/process/project-definition.md`, then the
+> stack → `settings.json` `skillOverrides` + placeholders), then **`/bootstrap`** (builds the
+> `deploy/` · `policies/` · `observability/` · `evals/` tree, or the `conf/` + `train.py`/`eval.py`
+> tree for a model-building lane). **`/setup`** runs the whole sequence + `/threat-model` + the P1
+> `/gate` in one session.
 
 ## Always-on conventions
 The rules that apply to essentially every change (fuller policy via the `governance` skill →
@@ -18,6 +23,22 @@ The rules that apply to essentially every change (fuller policy via the `governa
   phase transition without a passed `/gate` review recorded in `memory/process/phase-state.md`.
   The operating loop is the `process` skill. Governs **project work** — one-off ad-hoc analysis
   asks are served directly, no gate ceremony.
+- **Security and reliability are a track through every phase, not a review at the end**
+  (`PROCESS.md` §3.9): threat model at P3, controls + policy-as-code at P4, a recorded adversarial
+  run at P5, SLOs + exercised rollback at P6, telemetry + an incident path at P7.
+- **Design so a successful prompt injection is boring.** The question for any agentic design is
+  *if an attacker fully controlled the model's output, what could they reach?* Prefer removing a
+  capability to constraining it, and constraining it to detecting misuse of it. Filters are the last
+  layer, never the boundary (`agent-security`, `policy/ai-security.md`).
+- **Least agency by default** — a tool is granted explicitly, per agent, for a reason, and declared
+  in `memory/process/agent-authority.md`. Irreversible actions need a human who is shown the
+  concrete consequence.
+- **A control is a mechanism, not a sentence.** "We validate input" checks no box; a canon rule plus
+  a hook, a policy, a test, or a code path does. **"Not evidenced" is an honest status** — an
+  overclaimed control stops anyone looking.
+- **Hardened is the first draft.** Generated manifests are Pod Security `restricted`, digest-pinned,
+  resource-limited, default-deny networked, least-privilege RBAC. The guard hooks block the diff
+  that removes any of it.
 - **Match the surrounding code** — mirror its structure, naming, and comment density.
 - **Reproducibility is non-negotiable** — seed every RNG, pin versions, never let an experiment
   depend on un-recorded state; document any deliberate nondeterminism.
@@ -35,68 +56,101 @@ The rules that apply to essentially every change (fuller policy via the `governa
   actually satisfied (not "mostly"); code with runtime surface was exercised (`verify` / the
   `testing` ladder), not just written; any decision/risk/scope change was recorded in its one home
   as you went, not deferred. When a coherent unit of work closes with edits or decisions,
-  **proactively offer `/wrapup`** — don't wait to be asked. (The `SessionStart` hook handles the
-  mirror at the other end: it briefs you on phase, gate debt, and open threads at session start.)
+  **proactively offer `/wrapup`**. (The `SessionStart` hook handles the mirror at the other end.)
 
 ## Skills — `.claude/skills/<name>/SKILL.md`
 Auto-surface by description (that text is the entire routing surface — see
-`memory/reference/authoring-extensions.md` before adding one). Two tiers:
+`memory/reference/authoring-extensions.md` before adding one). Tiers:
 - **Always-on chassis:** `process` · `governance` · `testing` · `memory` · `wave-planning`
-- **Always-on workflow (DS core, archetype-agnostic):** `datasets` · `eda` · `evaluation` ·
-  `statistics` · `visualization` · `notebooks` · `reporting`
-- **Gated** (`/intake` flips via `skillOverrides` — **tool** skills by stack choice, **lane**
-  skills by archetype; all off unless flipped): tools — `env-uv` (on) · `tracking-mlflow` (on) ·
-  `config-hydra` (on) · `data-dvc` (on) · `tracking-wandb` · `config-omegaconf` · `hpo-optuna`;
-  lanes — cv: `annotation` · `pipelines` · `training` (flips for any neural-training archetype);
-  `tabular` · `timeseries` · `wrangling` · `sql` · `data-acquisition` ·
-  `finetune-unsloth` · `llm-eval` · `serving` · `monitoring` (those two flip at deploy) ·
-  `infra-aws` (S3+Redshift via a least-privilege IAM role — starter policy in
-  `.claude/templates/`) · `containers` (Docker/Compose; k8s deliberately parked) ·
-  `local-stack` (self-hosted/offline twins: MinIO, CVAT, Postgres+extensions).
+- **Always-on security & platform spine:** `agent-security` (the agentic threat surface + the design
+  ladder that bounds it) · `threat-modeling` (the artifact) · `observability` (OTel + agent
+  telemetry) · `reliability-sre` (SLOs, resilience, incidents) · `agent-evaluation` (trajectories,
+  judges, safety suites)
+- **Always-on DS core (archetype-agnostic):** `datasets` · `eda` · `evaluation` · `statistics` ·
+  `visualization` · `notebooks` · `reporting`
+- **Gated** (`/intake` flips via `skillOverrides`; off = zero context cost):
+  - *platform:* `kubernetes` · `policy-as-code` · `authn-authz` · `secrets-management` ·
+    `supply-chain-security` · `secure-cicd` · `iac-terraform` · `gitops` · `containers` ·
+    `serving` · `monitoring` · `infra-aws` · `local-stack`
+  - *AI security:* `guardrails` · `mcp-security` · `llm-red-teaming`
+  - *tools:* `env-uv` (on) · `tracking-mlflow` (on) · `config-hydra` (on) · `data-dvc` ·
+    `tracking-wandb` · `config-omegaconf` · `hpo-optuna`
+  - *model-building lanes:* `training` · `annotation` · `pipelines` · `tabular` · `timeseries` ·
+    `wrangling` · `sql` · `data-acquisition` · `finetune-unsloth` · `llm-eval`
+
   Tool skills carry a `**Pinned:**` version line — `/skill-update` keeps the facts true for the
   version the project actually runs.
 
 ## Subagents — `.claude/agents/<name>.md`
-`code-reviewer` (diff review, ML lens) · `software-architect` (read-only planning, project
-architecture pre-loaded) · `data-engineer` (data layer + annotation-ops tooling) · `ml-engineer`
-(models + train/eval loops) · `eval-analyst` (read-only error analysis)
+`security-reviewer` (diff/config review, AI-platform lens, findings cite canon rules) ·
+`threat-modeler` (read-only; builds the threat model) · `platform-engineer` (manifests, IaC, CI,
+telemetry — hardened on the first draft) · `sre-analyst` (read-only; SLOs, incident triage,
+postmortems) · `red-teamer` (adversarial suites against **this project only**) ·
+`compliance-mapper` (read-only; control coverage vs the crosswalk) · `code-reviewer` (correctness,
+ML lens) · `software-architect` (read-only planning) · `data-engineer` (data layer) ·
+`ml-engineer` (models + train/eval loops) · `eval-analyst` (read-only error/trajectory analysis)
 
 ## Commands — `.claude/commands/<name>.md`
 | Command | Does |
 |---|---|
-| `/setup` | full one-time setup: git preflight → `/intake` → `/bootstrap` → `/gate` (P1) → `/wrapup`, checkpoint commit per stage |
-| `/intake` | one-time: project-definition interview, then stack → `skillOverrides` + placeholders |
-| `/bootstrap` | one-time, after `/intake`: generate + prove the project skeleton, back-fill placeholders |
-| `/gate` | phase-gate review per `PROCESS.md` §3.8 — evidence per item, records pass/debt in `memory/process/phase-state.md`, refuses to advance unchecked |
-| `/skill-update` | sync a tool skill to the installed version — pin-vs-`uv.lock` drift check, changelog research, fact updates, pin bump; git history archives old versions |
-| `/upgrade` | upgrade an installed project's scaffold to a newer release — stamp-vs-upstream delta via the CHANGELOG, three-way file plan (add / replace-unmodified / ask-on-edited), state and profiles never clobbered |
-| `/report` | draft a deliverable (report / white paper / stakeholder summary / model card) assembled from the repo's records — claims cite run ids; evidence gaps flagged, never filled |
+| `/setup` | full one-time setup: git preflight → `/intake` → `/bootstrap` → `/threat-model` → `/gate` (P1) → `/wrapup`, checkpoint commit per stage |
+| `/intake` | one-time: project-definition + **security-posture** interview, then stack → `skillOverrides` + placeholders |
+| `/bootstrap` | one-time, after `/intake`: generate + prove the project skeleton (platform: `deploy/` `policies/` `observability/` `evals/`; model-building: `conf/` + entry points) |
+| `/threat-model` | build or refresh `memory/process/threat-model.md` — trust boundaries, STRIDE + ASI/ATLAS, every threat driven to a decision |
+| `/sec-review` | security review of the current diff (dispatches `security-reviewer`); the counterpart to `/review` |
+| `/harden` | audit an existing surface (manifests, IaC, agent tools, pipeline) against canon → prioritised remediation |
+| `/redteam` | adversarial campaign against this project's own agent system; findings become regression cases |
+| `/slo` | define or review SLIs/SLOs/error budgets → `memory/process/slo-register.md` |
+| `/postmortem` | blameless postmortem from records → `memory/incidents/` |
+| `/compliance` | control-coverage + gap report against the crosswalk → `memory/process/control-coverage.md` |
+| `/gate` | phase-gate review per `PROCESS.md` §3.8 + the §3.9 security track — evidence per item, records pass/debt, refuses to advance unchecked |
 | `/review` | review the current `git diff` for bugs + cleanups |
+| `/report` | draft a deliverable assembled from the repo's records — claims cite run ids; evidence gaps flagged, never filled |
+| `/skill-update` | sync a tool skill to the installed version — pin-vs-lock drift check, changelog research, fact updates, pin bump |
+| `/upgrade` | upgrade an installed project's scaffold to a newer release — three-way file plan; state and profiles never clobbered |
 | `/wrapup` | close out the session — record note (incl. phase + gate debt + scaffold check) → (commit) → land |
-| `/scaffold-retro` | assess the scaffold itself — cluster `memory/scaffold-journal.md` into themes, promote worth-acting-on ones to roadmap/CHANGELOG; the tooling's meta-loop, run periodically |
+| `/scaffold-retro` | assess the scaffold itself — cluster `memory/scaffold-journal.md` into themes, promote worth-acting-on ones |
 
 ## Hooks — `.claude/hooks/` (wired in `settings.json`)
+Guardrails against agent *mistakes*, not a sandbox against an adversary (`policy/security.md` S1).
+All fail open; every one has block/allow/**fail-open** cases in `.claude/scripts/check-hooks.py`.
+
 | Hook | Event | Does |
 |---|---|---|
-| `session-orient.py` | SessionStart (startup·clear) | injects a "where are we" briefing — current phase, open gate debt, last session, roadmap next — so a session never starts blind; silent when no project is active |
-| `validate-bash.sh` | Pre · Bash | blocks root/home wipes, `.env` reads, curl-pipe-to-shell; confirm dialog on destructive ops (recursive deletes, git/dvc discards, aws bucket/cluster deletion + IAM mutation, docker volume removal) |
+| `session-orient.py` | SessionStart (startup·clear) | "where are we" briefing — phase, gate debt, **threat-model age, error-budget attention, expired policy exceptions**, last session, roadmap next |
+| `validate-bash.sh` | Pre · Bash | blocks root/home wipes, `.env` + kubeconfig + Secret reads, curl-pipe-to-shell; confirm dialog on destructive ops (recursive deletes, git/dvc discards, `kubectl delete`/`drain`/`exec`, `helm uninstall`, `terraform apply`/`destroy`, argocd/flux delete, vault delete, AWS + cluster RBAC mutation) |
 | `guard-pyproject.py` | Pre · Edit/Write | dependency edits go through `uv add`/`uv remove` |
 | `guard-notebook-outputs.py` | Pre · Edit/Write | `.ipynb` must commit output-stripped |
-| `guard-secrets.py` | Pre · Edit/Write | blocks credential-shaped writes — secrets stay in `.env` |
+| `guard-secrets.py` | Pre · Edit/Write | blocks credential-shaped writes — provider keys, JWTs, kubeconfig material, cloud SA keys |
+| `guard-k8s-manifests.py` | Pre · Edit/Write | blocks privileged/host-namespace/`hostPath`/root pods, missing resource limits, `:latest`, wildcard RBAC, Secret literals — honours recorded exceptions |
+| `guard-iac.py` | Pre · Edit/Write | blocks public buckets, `0.0.0.0/0` on sensitive ports, wildcard IAM, unencrypted storage, hardcoded credentials |
+| `guard-agent-config.py` | Pre · Edit/Write | blocks unpinnable MCP servers; **asks** on server additions, permission widening, granting a subagent write/shell |
 | `validate-python.py` | Post · Edit/Write | `ruff format` + `ruff check --fix` on edited `.py` |
+| `validate-manifests.py` | Post · Edit/Write | `terraform fmt`; `kubeconform` on manifests. Advisory, never blocks |
+| `scan-untrusted-content.py` | Post · WebFetch/Read | annotates injection-shaped fetched/read content — makes S1/AI1 mechanical. Never blocks |
 | `run-leakage-tests.sh` | Stop | leakage tests gate session end |
+| `run-security-tests.sh` | Stop | policy self-tests, manifest conformance, and the injection regression suite gate session end |
 
 ## Memory — `.claude/memory/`
 On-demand store, never auto-loaded; read/write process is the `memory` skill.
-`sessions/` (dated summaries) · `reference/` (how-we-do-X notes, incl. `authoring-extensions.md` —
-read it before extending `.claude/` — and `architecture-skills-vs-agents.md`, why skills stay
-in-context and there's no orchestrator agent) · `roadmap.md` (backlog; doubles as the scope parking lot) ·
-`scaffold-journal.md` (observed quality of the scaffold itself — dogfooding wins/friction/gaps; harvested by `/scaffold-retro`) ·
-`policy/` (governance canon: `data-governance.md`, `model-governance.md`, `security.md`) ·
+`sessions/` (dated summaries) · `incidents/` (postmortems, T11) · `reference/` (how-we-do-X notes,
+incl. `authoring-extensions.md` — read it before extending `.claude/` — plus
+`architecture-skills-vs-agents.md` and `architecture-security-layers.md`) · `roadmap.md` (backlog;
+doubles as the scope parking lot) · `scaffold-journal.md` (observed quality of the scaffold itself;
+harvested by `/scaffold-retro`) ·
+**`policy/`** (governance canon, 8 domains with citable rule ids: `security.md` `S#` (the dev loop) ·
+`ai-security.md` `AI#` · `platform-security.md` `P#` · `identity-and-access.md` `I#` ·
+`supply-chain.md` `C#` · `reliability.md` `R#` · `data-governance.md` `D#` ·
+`model-governance.md` `M#`; plus `compliance-crosswalk.md` and **`frameworks/`** — 20 published
+standards with versions and verification dates. **Canon cites framework control ids
+(`[LLM01]`, `[CIS 5.2]`); the framework text lives only in `frameworks/`.**) ·
 `process/` (live `PROCESS.md` state: `project-definition.md`, `phase-state.md`, `risk-register.md`,
-`scope-ledger.md`, `decision-log.md`, `resources.md` — the resource matrix: every
-service/store/endpoint + env keys + credential references, synced with `.env.example`)
+`scope-ledger.md`, `decision-log.md`, `resources.md`, **`threat-model.md`** (T9),
+**`slo-register.md`** (T10), **`control-coverage.md`** (T12), **`agent-authority.md`** (T13))
 
 ## Other config
-`settings.json` (permissions + hooks + `skillOverrides`) · `scripts/` (hook/command helpers) ·
-`.mcp.json` (MCP wiring — not shipped; create at repo root when needed)
+`settings.json` (permissions + hooks + `skillOverrides` + skill-listing budget) ·
+`scripts/` (`check-scaffold.sh` self-consistency, `check-hooks.py` guard behaviour,
+`build-reference.py` doc generation) · `templates/` (k8s baseline, Kyverno + conftest policies,
+security CI, OTel collector, runbook, `.mcp.json` example, agent RBAC, IAM policy) ·
+`.mcp.json` (MCP wiring — not shipped; create at repo root when needed, and read `mcp-security` first)

@@ -1,0 +1,114 @@
+# Kyverno baseline — the platform-security canon as admission policy.
+#
+# Note `validationFailureAction: Audit` on every rule. Ship in Audit, read the PolicyReport
+# (`kubectl get policyreport -A`), fix or explicitly exclude what it finds, THEN flip to Enforce.
+# Shipping Enforce on day one blocks a deploy at 2am and teaches people to delete the policy.
+# Set a date to flip when you write it — a policy in Audit for six months is a report nobody reads.
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: platform-security-baseline
+  annotations:
+    policies.kyverno.io/description: >-
+      Enforces .claude/memory/policy/platform-security.md P1-P7 at admission. Every message names
+      the canon rule so the fix has a home.
+spec:
+  validationFailureAction: Audit # -> Enforce after the audit period
+  background: true # also scan already-admitted workloads
+  rules:
+    - name: require-digest-pinned-image
+      match:
+        any: [{ resources: { kinds: [Pod] } }]
+      validate:
+        message: >-
+          P4: images must be digest-pinned from an approved registry, never :latest or a bare tag.
+          A mutable tag means the artifact you reviewed and the one running are different things.
+        pattern:
+          spec:
+            containers:
+              - image: "CHANGEME-registry.example.com/*@sha256:*"
+
+    - name: require-resource-limits
+      match:
+        any: [{ resources: { kinds: [Pod] } }]
+      validate:
+        message: >-
+          P3: every container needs resources.requests and resources.limits (cpu + memory).
+          An unlimited workload is a denial-of-service vector against everything on the node.
+        pattern:
+          spec:
+            containers:
+              - resources:
+                  requests: { cpu: "?*", memory: "?*" }
+                  limits: { cpu: "?*", memory: "?*" }
+
+    - name: disallow-wildcard-rbac
+      match:
+        any: [{ resources: { kinds: [Role, ClusterRole] } }]
+      validate:
+        message: >-
+          P6: wildcard RBAC is how a workload compromise becomes a cluster compromise.
+          Enumerate the exact apiGroups, resources, and verbs.
+        deny:
+          conditions:
+            any:
+              - key: "{{ request.object.rules[].verbs[] }}"
+                operator: AnyIn
+                value: ["*"]
+              - key: "{{ request.object.rules[].resources[] }}"
+                operator: AnyIn
+                value: ["*"]
+
+    - name: verify-image-signature
+      match:
+        any: [{ resources: { kinds: [Pod] } }]
+      verifyImages:
+        # supply-chain.md C3 — this is the step that makes signing mean something.
+        # Signing without verification is theatre.
+        - imageReferences: ["CHANGEME-registry.example.com/*"]
+          attestors:
+            - entries:
+                - keyless:
+                    # Pin the identity TIGHTLY. A `.*` regex verifies that somebody signed it,
+                    # which is not the question being asked.
+                    subject: "https://github.com/CHANGEME-ORG/CHANGEME-REPO/.github/workflows/*"
+                    issuer: "https://token.actions.githubusercontent.com"
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: platform-security-defaults
+  annotations:
+    policies.kyverno.io/description: >-
+      Mutate/generate rules: apply the safe default rather than rejecting, for things that have an
+      obviously correct value and that authors forget.
+spec:
+  rules:
+    - name: default-no-sa-token
+      match:
+        any: [{ resources: { kinds: [Pod] } }]
+      mutate:
+        patchStrategicMerge:
+          spec:
+            +(automountServiceAccountToken): false # P6
+
+    - name: every-namespace-gets-default-deny
+      # The highest-leverage rule in the set: it makes P5 the automatic state of every new
+      # namespace rather than something a human remembers.
+      match:
+        any: [{ resources: { kinds: [Namespace] } }]
+      exclude:
+        any:
+          - resources:
+              namespaces: ["kube-system", "kube-public", "kube-node-lease"]
+      generate:
+        apiVersion: networking.k8s.io/v1
+        kind: NetworkPolicy
+        name: default-deny-all
+        namespace: "{{request.object.metadata.name}}"
+        synchronize: true
+        data:
+          spec:
+            podSelector: {}
+            policyTypes: [Ingress, Egress]

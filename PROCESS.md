@@ -1,6 +1,6 @@
 # PROCESS.md — A Hybrid Data Science Project Framework
 
-> **Version:** 0.2.0 · **Last updated:** 2026-07-18 · **Owner:** _(you)_
+> **Version:** 1.0.0 · **Last updated:** 2026-07-25 · **Owner:** _(you)_
 > **Status:** Living document. Edited after every project retrospective (see Part V).
 
 This is a reusable operating system for running data science projects — solo or as a lead. It is a deliberate cross-breed of the proven, published frameworks below, keeping what each does best and discarding what each underemphasizes. Every phase ends in an **exit gate**: questions you must answer in writing before moving on. Gates are the difference between a process and winging it.
@@ -27,6 +27,12 @@ Nothing here is invented from scratch. Each element is traceable to a published 
 | **Cookiecutter Data Science** | DrivenData | Standardized repo layout; "notebooks explore, `src/` productionizes" | Directory conventions and the exploration/production split | Nothing — it's small and composable |
 | **Lean / hypothesis-driven development** | Lean Startup lineage; Google's "Rules of ML" | Falsifiable hypotheses, kill criteria, simplest-thing-first, baseline-before-model | Kill criteria in Phase 1; baseline-first rule in Phase 5 | Growth-hacking framing irrelevant to modeling work |
 | **Data-centric AI / annotation ops** | Practitioner community (label-quality research, e.g. Northcutt et al. on label errors; standard IAA statistics) | Labels are a manufactured artifact with a measurable defect rate, not ground truth by decree | Annotation spec, pilot + inter-annotator agreement, gold sets, label-error audits (P2) | Vendor/platform specifics |
+
+| **Secure SDLC** | NIST SSDF (SP 800-218 v1.1) + SP 800-218A for AI; Microsoft SDL; CISA Secure by Design | Security is a set of development *practices* with owners and evidence, not a review at the end | PS/PW practice shape in P4, RV in P7; 218A's "training data is supply chain" and adversarial-testing-as-a-development-activity | Federal attestation ceremony; acquirer-side guidance |
+| **AI risk management** | NIST AI RMF (AI 100-1) + Generative AI Profile (AI 600-1) | GOVERN / MAP / MEASURE / MANAGE as the shape of responsible AI work | The four functions mapped onto the existing phases (§3.9) — not a parallel ceremony | Org-level program structure; the full Playbook checklist |
+| **Threat modelling** | STRIDE (Microsoft); LINDDUN; MITRE ATLAS; OWASP ASI/LLM Top 10 | Enumerate what can go wrong against a checklist, per trust boundary, before building | The four-question frame + trust boundaries at P3; ATLAS/ASI ids as the naming convention | Numeric scoring models — fake precision that starts arguments about the number |
+| **SRE** | Google (*SRE*, *SRE Workbook*, *Building Secure and Reliable Systems*) | Reliability is a measurable target with an agreed consequence, not an aspiration | SLI/SLO/error budgets, blameless postmortems, graceful degradation; and its claim that security and reliability must be designed *together* | Google-scale org structure; dedicated-SRE-team assumptions |
+| **DevSecOps / supply chain** | SLSA (OpenSSF), Sigstore, OWASP CI/CD Top 10 | The build pipeline is production infrastructure, and artifacts need provenance | Build provenance levels, SBOM, sign-and-verify, pipeline least-privilege (P4/P6) | Tool advocacy; maturity-model scoring |
 
 ### Why CRISP-DM is the spine
 
@@ -96,6 +102,8 @@ Iteration is expected: evaluation results routinely send you back to features or
 - [ ] Kill criteria are written
 - [ ] Deadline and constraints are explicit
 - [ ] Compute math done: est. GPU-hours per training run × planned runs fits the available hardware and the deadline
+- [ ] **Security posture recorded** — data sensitivity, tenancy, exposure, agent autonomy, and human-in-the-loop requirements, from `/intake`'s posture interview
+- [ ] **Regulatory exposure asked, not assumed** — does this touch an EU AI Act Annex III use case or ship a GPAI model? A "yes" or "unsure" is in the risk register with counsel flagged (§3.9)
 
 ---
 
@@ -129,6 +137,8 @@ Iteration is expected: evaluation results routinely send you back to features or
 - [ ] *(if labeling)* Annotation spec written and survived a pilot: IAA measured and above the written threshold
 - [ ] *(if labeling)* Label error rate estimated from an audited sample and small relative to the margin the success metric needs
 - [ ] *(if labeling)* Gold set exists, if labeling continues past this phase
+- [ ] **Sensitive-data classes identified** and their lawful basis recorded (`data-governance.md` D1–D2)
+- [ ] *(if the project retrieves)* **Retrieval corpus treated as a governed dataset** — per-document provenance, no ingestion from user-writable locations without review (`D7`)
 
 ---
 
@@ -170,6 +180,8 @@ project/
 - [ ] Raw data immutability rule is enforced by structure, not discipline
 - [ ] Schema supports the aggregate queries Phase 4 will need (tested with one real query)
 - [ ] Environment is pinned and reproducible
+- [ ] **Threat model written and current** (`.claude/memory/process/threat-model.md`, dated) — trust boundaries named, every threat driven to a decision, gaps in the risk register. **This is the phase where it changes the design cheaply**
+- [ ] *(if the system has agents)* **Agent authority declared** — tool grants, human gates, and budget caps in `agent-authority.md` (`ai-security.md` AI2/AI3/AI9)
 - [ ] **Predictive-signal go/no-go recorded** (train-only screen — single-feature AUC/MI + a quick multivariate read vs the trivial baseline; see `eda`). An explicit written call that there is enough signal to justify the P4/P5 spend — a weak result is a stop-and-rethink *before* feature engineering, not a discovery deferred to the modeling sweep. (Caveat noted in the record: adversarial targets and split-shift ceilings are the baseline step's job, not the screen's — a strong screen still doesn't excuse skipping baselines.)
 
 ---
@@ -195,6 +207,9 @@ project/
 - [ ] Every feature passed an explicit leakage / temporal-validity review
 - [ ] Feature computations have passing unit tests
 - [ ] Distributions eyeballed and anomalies explained or fixed
+- [ ] **Controls implemented, with mechanisms** — the canon rules this phase's work touches have a hook, policy, or code path, not just prose (`/harden` or `compliance-mapper` produces the evidence)
+- [ ] **Policy-as-code green** — manifests and IaC pass `conftest`/Kyverno, and `conftest verify` shows the policies actually reject their bad fixtures
+- [ ] **Pipeline hardened** — no long-lived cloud credentials, actions pinned by SHA, fork PRs get no secrets (`supply-chain.md` C6)
 
 ---
 
@@ -221,6 +236,9 @@ project/
 - [ ] Calibration checked if probabilities are the product
 - [ ] Experiment spend tracked against the written compute budget; overruns were decided in writing (decision log), not drifted into
 - [ ] Kill criteria from P1 consulted: continue, pivot, or stop — decided explicitly
+- [ ] **Adversarial run recorded** — a dated `/redteam` run with ASI/ATLAS coverage stated, findings triaged, and every fix encoded as a regression case (`model-governance.md` M16)
+- [ ] *(if agentic)* **Trajectory evaluated, not just final answers** — tool-call correctness and behaviour under adversarial input (`agent-evaluation`)
+- [ ] *(if an LLM judge is used)* **Judge validated against human labels**, with the agreement number reported alongside its scores
 
 ---
 
@@ -242,6 +260,11 @@ project/
 - [ ] Clean-environment rerun succeeds (or the gaps are honestly documented)
 - [ ] README lets a stranger understand and reproduce the result
 - [ ] Retro completed and PROCESS.md updated with at least one change (or a written "no changes needed")
+- [ ] **SLOs defined with agreed consequences** — `slo-register.md` has targets, windows, owners, and what happens when the budget is spent (`reliability.md` R1/R2)
+- [ ] **Rollback exercised, not just designed** (`R3`) — an untested rollback is a plan, not a capability
+- [ ] **Runbook per alert**, and every alert is actionable (`R6`)
+- [ ] **Artifacts have an SBOM, a signature, and build provenance** — and something *verifies* the signature (`supply-chain.md` C2–C4)
+- [ ] **Control coverage current** (`control-coverage.md`), with expired policy exceptions cleared or re-accepted
 
 ---
 
@@ -262,6 +285,9 @@ project/
 - [ ] Staleness criteria written (what measurement means "the model is stale")
 - [ ] Retraining trigger defined and tested once
 - [ ] An owner is named
+- [ ] **Telemetry live** — the three signals plus the agent-specific spans that make a bad run reconstructable (`ai-security.md` AI12)
+- [ ] **Audit logging on and shipped off-cluster** (`platform-security.md` P9) — a log the attacker can delete is not evidence
+- [ ] **Incident path known** — severity definitions, who is paged, escalation, and the postmortem threshold (`R7`/`R8`)
 
 ---
 
@@ -310,6 +336,55 @@ Principle 8 made mechanical. "Treat unfilled gates as blockers" is exactly the k
 - **The risk register is reviewed at every gate review** (§3.2) — same mechanism, so it actually happens.
 - **Unchecked items are gate debt.** They are recorded by name in the phase-state file, visible at the next session's start — not silently forgotten. Working *inside* a phase with open debt is fine; moving *forward* past it is not.
 - **Conditional items** (e.g., the labeling items in P2, P7 entirely) may be marked **N/A with a written reason** — a reason, not a shrug.
+
+### 3.9 The security & reliability track
+Security and reliability are not a phase. They are a track that runs *through* the phases, with
+items on every gate (Part II) — because the cheapest place to fix either is the design, and a
+security review bolted on at P6 finds problems whose fix is a rewrite.
+
+The track maps onto NIST AI RMF's four functions without adding a parallel ceremony:
+
+| AI RMF function | Where it already lives | Enforced by |
+|---|---|---|
+| **GOVERN** | the policy canon in `.claude/memory/policy/` + its decision logs | `governance` skill · `/gate` |
+| **MAP** | P1 security posture · P3 threat model | `/threat-model` · `threat-modeler` |
+| **MEASURE** | P5 evaluation + adversarial run | `/redteam` · `agent-evaluation` |
+| **MANAGE** | P6 SLOs and controls · P7 monitoring and incidents | `/slo` · `/compliance` · `/postmortem` |
+
+Four rules make it mechanical rather than aspirational, mirroring §3.8:
+
+- **The threat model is a file, and it is dated.** `.claude/memory/process/threat-model.md`. A
+  threat model predating the current architecture is **unchecked, not checked** — and
+  `session-orient.py` surfaces its age at every session start so it cannot quietly rot.
+- **A control is a mechanism, not a sentence.** "We validate input" does not check a box; a canon
+  rule plus a file, a hook, a policy, or a test does. `control-coverage.md` records which, and
+  **"not evidenced" is an honest and expected status** — an overclaimed control is worse than a
+  missing one, because it stops anyone looking.
+- **An expired exception is gate debt.** Every entry in a `*-decision-log.md` carries a review date.
+  Past it, the exception was accepted as temporary and has become permanent by default — which is
+  precisely what a gate exists to catch.
+- **Evidence is dated.** A red-team run, an exercised rollback, a control assessment: each is
+  evidence of a moment, not a permanent property. Old evidence is re-gathered, not re-cited.
+
+**Guardrails vs boundary, restated because it governs how to read all of the above:** the hooks in
+`.claude/hooks/` stop the common accident cheaply and loudly; they are not a sandbox against an
+adversary. The boundaries are the permission system, the IAM policy, the RBAC binding, and admission
+control. Never treat a green hook as clearance (`security.md` S1).
+
+### 3.10 Incidents
+An incident is a phase interrupt, not a phase. It suspends forward gate movement and has its own
+loop — `reliability.md` `R7`/`R8` carry the rules, `/postmortem` produces the record:
+
+1. **Mitigate first, diagnose second.** Restore service, then find out why. **The exception is a
+   security incident**, where evidence is preserved before remediating — a real tension the incident
+   commander resolves consciously rather than by default.
+2. **One named commander**, roles named explicitly, and a timeline written *as it happens* — it will
+   not be reconstructable afterwards.
+3. **Postmortem above the agreed severity**, blameless, producing actions with owners tracked in the
+   risk register. Actions without an owner and a tracking entry are wishes.
+4. **The loop closes back into the process:** postmortem actions become risk-register rows; security
+   findings feed `/threat-model`; a missed detection becomes an observability gap; and if the same
+   class recurs, Part V says amend this document.
 
 ---
 
@@ -391,6 +466,66 @@ PARKING LOT (requires written promotion gate):
 
 ---
 
+### T9 — Threat Model (P3, refreshed when the design moves)
+```
+Version / date:      (undated == assumed current == wrong)
+Scope:               what is modelled
+OUT of scope:        say it — an unstated exclusion reads as an oversight
+
+Trust boundaries:    # | boundary | what crosses | who can write on the untrusted side
+Assets:              asset | where it lives | why an attacker wants it
+Threats:             # | boundary | threat | framework id | likelihood | impact |
+                     detectable? | decision | control LOCATION (canon rule + file)
+Gaps:                threats with no control  <- the section that gets acted on
+Accepted risks:      risk | why | owner | review by   (mirrored to the risk register)
+Changed since:       what moved, and why
+```
+Every threat ends in mitigated / accepted / transferred / eliminated. A threat with none of those is
+an unfinished sentence.
+
+### T10 — SLI / SLO Sheet (P6)
+```
+Service | SLI | measured where | target | window | owner | CONSEQUENCE when the budget is spent
+```
+The consequence column is the one that matters: an SLO with no agreed consequence is a dashboard.
+Agree it when the SLO is set — the conversation is uncomfortable enough that it never happens later.
+For an LLM-backed service the minimum set is availability, latency p95/p99, time-to-first-token
+(separately, for streaming), and a **quality** SLI — a 200 with degraded output is a failure that
+looks healthy.
+
+### T11 — Incident Postmortem (blameless)
+```
+Date | severity | duration | commander | detected by
+Impact:               who, how long, how badly — quantified
+Timeline:             from evidence, incl. TIME TO DETECTION
+Contributing factors: what made it possible / slow to detect / hard to fix
+What went well:       incl. the controls that worked — they need defending
+Actions:              action | prevent-detect-reduce | owner | tracked as
+```
+No names attached to mistakes. **"Human error" is not a root cause** — it is the starting point for
+asking what made the error easy and why nothing caught it.
+
+### T12 — Control Coverage (P6, refreshed before any assessment)
+```
+Rule | status | evidence (path / mechanism) | notes
+status ∈ Enforced | Implemented | Documented | Not applicable (with reason) | Not evidenced
+```
+A rule is only Implemented if you can point at something. This is the file a questionnaire gets
+answered from; the crosswalk is only an index. Nothing here has been certified against any framework.
+
+### T13 — Agent Authority Declaration (P3, reviewed whenever a tool is added)
+```
+Agent | identity | tool | scope/constraint | REACHES (blast radius) | reversible? | human gate
+Actions requiring a human:  action class | why irreversible | approver | what the prompt must show
+Budgets:                    tokens | cost | wall-clock | tool calls | depth — each failing CLOSED
+MCP servers:                server | pin | tools exposed | tools GRANTED | creds+scope | last review
+```
+If you cannot fill "reaches", the grant is not understood well enough to make. This is the file the
+`guard-agent-config.py` hook checks tool-granting edits against — which is what makes least agency
+erode visibly, as a diff, instead of silently.
+
+---
+
 ## Part V — The Meta-Loop
 
 The artifact of any single project is disposable. The asset is the process that produced it. So the process must improve on the same cadence as the projects:
@@ -405,6 +540,17 @@ Run this loop across three or four projects and the result is a personal methodo
 
 ### Changelog
 ```
+1.0.0 (2026-07-25) — AI-platform fork. Security & reliability become a track through every phase
+                      (§3.9) rather than a late review: threat model at P3, controls + policy-as-code
+                      at P4, recorded adversarial run at P5, SLOs + exercised rollback + signed
+                      artifacts at P6, telemetry + incident path at P7. Adds §3.10 (incidents as a
+                      phase interrupt) and T9-T13 (threat model, SLO sheet, postmortem, control
+                      coverage, agent authority). Part I gains five lineage rows: NIST SSDF/800-218A,
+                      NIST AI RMF, STRIDE/ATLAS/OWASP threat modelling, Google SRE, DevSecOps/SLSA.
+                      Phase numbers and names are deliberately UNCHANGED — the lifecycle was already
+                      archetype-agnostic, and renaming would have broken every cross-reference in the
+                      skills for no gain. Also corrects the header version, which read 0.2.0 while
+                      this changelog was at 0.3.0.
 0.3.0 (2026-07-19) — Predictive-signal go/no-go: a train-only single-feature-AUC / MI /
                      multivariate screen becomes a P2 key activity + a P3 exit-gate item, so
                      "is there enough signal to fund P4/P5?" is answered in writing before the

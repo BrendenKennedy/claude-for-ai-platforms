@@ -1,0 +1,65 @@
+{
+  "_comment": [
+    "MCP server configuration — copy to .mcp.json at the repo root. See the `mcp-security` skill.",
+    "",
+    "An MCP server is not an ordinary dependency: it supplies tool names, descriptions, and",
+    "parameter docs that go DIRECTLY into the model's instruction context. It is a dependency with",
+    "a prompt-injection channel and your credentials, and neither CVE scanning nor SBOM sees any of",
+    "it — the payload is not in the code, it is in a string the server returns.",
+    "",
+    "guard-agent-config.py BLOCKS an unpinnable reference and ASKS on every server addition.",
+    "Canon: supply-chain.md C8, ai-security.md AI2/AI8."
+  ],
+
+  "_pinning": [
+    "BLOCKED  {\"command\": \"npx\", \"args\": [\"-y\", \"@vendor/server\"]}      <- resolves to whatever is current",
+    "OK       {\"command\": \"npx\", \"args\": [\"-y\", \"@vendor/server@1.4.2\"]}",
+    "BEST     a digest-pinned container, no ambient network, an explicitly scoped credential",
+    "",
+    "Version pinning alone does NOT stop the rug pull if the server fetches its tool definitions",
+    "remotely. Digest-pinning a container that carries its definitions locally does."
+  ],
+
+  "mcpServers": {
+    "example-version-pinned": {
+      "command": "npx",
+      "args": ["-y", "@CHANGEME-vendor/CHANGEME-server@1.4.2"],
+      "env": {
+        "_comment": "Scoped credential, never a broad one. A server asking for wide access to do a narrow job is the confused deputy waiting to happen.",
+        "VENDOR_API_KEY": "${CHANGEME_VENDOR_SCOPED_KEY}"
+      }
+    },
+
+    "example-digest-pinned-container": {
+      "command": "docker",
+      "args": [
+        "run",
+        "--rm",
+        "-i",
+        "--network=none",
+        "--read-only",
+        "--user",
+        "10001:10001",
+        "CHANGEME-registry.example.com/CHANGEME-mcp-server@sha256:CHANGEME"
+      ],
+      "env": {
+        "_comment": "--network=none where the server does not need network. Never --network=host, never a mounted home directory: that discards the isolation you containerised it for."
+      }
+    }
+  },
+
+  "_review_checklist": [
+    "Before adding a server, and again whenever its descriptions change:",
+    "1. Read the TOOL DEFINITIONS in full — names, descriptions, parameter docs. Not the README.",
+    "   Look for instructions aimed at the MODEL rather than documentation aimed at a developer:",
+    "   references to other tools, to files, to 'always' or 'before responding', or parameters like",
+    "   'context'/'debug'/'metadata' that invite the model to fill them with whatever it has.",
+    "2. Who publishes it, and how many people use it?",
+    "3. What credentials does it want, and at what scope? Narrow them or do not add it.",
+    "4. What does it reach — network, filesystem, subprocesses? A stdio server runs as a local",
+    "   process with your user's permissions; the client generally does not sandbox it.",
+    "5. Is it pinnable? If the only install path is unpinned, C8 blocks it.",
+    "6. Record the grant in .claude/memory/process/agent-authority.md — an agent gets the tools its",
+    "   task needs, not everything a connected server exposes."
+  ]
+}

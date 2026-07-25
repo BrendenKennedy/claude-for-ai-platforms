@@ -1,0 +1,73 @@
+# Hardened Deployment baseline — satisfies platform-security.md P1-P4 as written.
+# Copy, rename, and change the marked values. Do NOT strip the securityContext or the resources
+# block: guard-k8s-manifests.py blocks the diff that removes them, and Pod Security `restricted`
+# rejects the workload at admission anyway.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: CHANGEME-app
+  namespace: CHANGEME-namespace
+  labels:
+    app.kubernetes.io/name: CHANGEME-app
+spec:
+  replicas: 2 # >= 2 for anything with an availability SLO (reliability.md R1)
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: CHANGEME-app
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: CHANGEME-app
+    spec:
+      serviceAccountName: CHANGEME-app # never `default` (P6)
+      automountServiceAccountToken: false # true only if it calls the k8s API (P6)
+      securityContext: # pod level (P1)
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: app
+          # P4: digest-pinned, approved registry. Never :latest, never a bare tag.
+          image: CHANGEME-registry.example.com/CHANGEME-app@sha256:CHANGEME
+          imagePullPolicy: IfNotPresent
+          securityContext: # container level (P1)
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources: # both, always (P3)
+            requests:
+              cpu: "250m"
+              memory: "512Mi"
+            limits:
+              cpu: "1"
+              memory: "1Gi"
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            # Secrets are MOUNTED, not env vars (P7): env vars appear in `kubectl describe`,
+            # in the pod spec, and in crash dumps. Non-secret config is fine here.
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: http://otel-collector.observability:4317
+          # A slow starter (model weights!) needs startupProbe, or liveness kills it mid-boot
+          # and you get a CrashLoopBackOff that looks like a crash.
+          startupProbe:
+            httpGet: { path: /healthz, port: http }
+            periodSeconds: 5
+            failureThreshold: 60 # 5 minutes to load
+          readinessProbe: # "can it serve NOW" — dependencies belong here
+            httpGet: { path: /readyz, port: http }
+            periodSeconds: 5
+          livenessProbe: # "is the process wedged" — NEVER check dependencies here
+            httpGet: { path: /healthz, port: http }
+            periodSeconds: 10
+          volumeMounts:
+            - { name: tmp, mountPath: /tmp } # readOnlyRootFilesystem needs a writable tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
+      terminationGracePeriodSeconds: 30

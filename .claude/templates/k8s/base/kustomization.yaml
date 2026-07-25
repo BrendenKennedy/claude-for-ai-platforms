@@ -1,0 +1,15 @@
+# Kustomize base. Overlays set the image digest and per-environment values; the base holds the
+# shape. Render and READ before applying: `kubectl kustomize deploy/overlays/<env>`.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: CHANGEME-namespace
+
+resources:
+  - namespace-and-network.yaml
+  - rbac-and-service.yaml
+  - deployment.yaml
+
+commonLabels:
+  app.kubernetes.io/name: CHANGEME-app
+  app.kubernetes.io/managed-by: kustomize

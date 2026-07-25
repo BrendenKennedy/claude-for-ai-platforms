@@ -1,0 +1,76 @@
+# Starter cluster role for the agent's own identity — the Kubernetes counterpart to
+# templates/aws-iam-policy.json. NOT applied by install.sh: a human reviews and applies it.
+#
+# security.md S8: hooks confirm-gate destructive commands, but the BOUNDARY is this binding. The
+# agent never widens its own permissions — and the deny-by-omission below makes self-widening
+# structurally impossible, because nothing here grants rbac.authorization.k8s.io at all.
+#
+# Default posture: READ almost everything, WRITE nothing, and never read Secrets.
+# Grant writes deliberately, per namespace, when the project actually needs them.
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: claude-agent
+  namespace: CHANGEME-agent-namespace
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: claude-agent-read
+rules:
+  # Observability and debugging — the read surface that makes `kubernetes` and `sre-analyst` useful.
+  - apiGroups: [""]
+    resources:
+      ["pods", "pods/log", "services", "endpoints", "configmaps", "namespaces", "nodes", "events"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "statefulsets", "daemonsets", "replicasets"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["batch"]
+    resources: ["jobs", "cronjobs"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["networkpolicies", "ingresses"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["policy"]
+    resources: ["poddisruptionbudgets"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["metrics.k8s.io"]
+    resources: ["pods", "nodes"]
+    verbs: ["get", "list"]
+  # Reading RBAC is allowed (auditing it is the point); MUTATING it is not granted anywhere.
+  - apiGroups: ["rbac.authorization.k8s.io"]
+    resources: ["roles", "rolebindings", "clusterroles", "clusterrolebindings"]
+    verbs: ["get", "list"]
+#
+# DELIBERATELY ABSENT — do not add these without a decision-log entry:
+#   - secrets (any verb)          security.md S3: a secret read is a secret in the transcript
+#   - pods/exec, pods/portforward interactive access bypasses the audit trail
+#   - any `create`/`update`/`patch`/`delete` on rbac.*  S8: no self-widening
+#   - `*` in any field                                  platform-security.md P6
+#
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: claude-agent-read
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: claude-agent-read
+subjects:
+  - kind: ServiceAccount
+    name: claude-agent
+    namespace: CHANGEME-agent-namespace
+---
+# Optional: scoped WRITE access, one namespace, granted deliberately. Uncomment and narrow.
+# apiVersion: rbac.authorization.k8s.io/v1
+# kind: Role
+# metadata:
+#   name: claude-agent-write
+#   namespace: CHANGEME-dev-namespace     # a dev namespace, never production
+# rules:
+#   - apiGroups: ["apps"]
+#     resources: ["deployments"]
+#     verbs: ["get", "list", "watch", "patch"]   # note: no `delete`

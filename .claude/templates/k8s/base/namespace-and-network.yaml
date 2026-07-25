@@ -1,0 +1,92 @@
+# Namespace + default-deny networking. These two are the highest-leverage manifests in the repo:
+# the namespace labels make Pod Security `restricted` the enforced default (P1), and the
+# default-deny NetworkPolicy means a compromised workload cannot reach its neighbours (P5).
+#
+# Both must exist BEFORE the first workload. A namespace auto-created by `kubectl apply` or an
+# Argo CD `CreateNamespace=true` has neither, which is why we declare it explicitly.
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: CHANGEME-namespace
+  labels:
+    # P1 — set all three at creation. `warn`/`audit` at restricted while `enforce` is still
+    # baseline is the supported migration path for an existing cluster; new namespaces start here.
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/warn: restricted
+---
+# P5 — deny everything, then add narrow allow rules per workload below.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all
+  namespace: CHANGEME-namespace
+spec:
+  podSelector: {}
+  policyTypes: [Ingress, Egress]
+---
+# DNS egress must be allowed explicitly, or everything breaks in a way that looks like an
+# application bug. This is the single most common default-deny mistake.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-dns-egress
+  namespace: CHANGEME-namespace
+spec:
+  podSelector: {}
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - { protocol: UDP, port: 53 }
+        - { protocol: TCP, port: 53 }
+---
+# Example narrow allow: ingress to the app from the ingress controller only.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-ingress-to-app
+  namespace: CHANGEME-namespace
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: CHANGEME-app
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: CHANGEME-ingress-namespace
+      ports:
+        - { protocol: TCP, port: 8080 }
+---
+# Bound the namespace so one workload cannot starve the others (P3).
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: namespace-quota
+  namespace: CHANGEME-namespace
+spec:
+  hard:
+    requests.cpu: "8"
+    requests.memory: 16Gi
+    limits.cpu: "16"
+    limits.memory: 32Gi
+    pods: "40"
+---
+# Anything without explicit resources gets a sane default rather than becoming BestEffort —
+# the QoS class that is evicted first.
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: default-limits
+  namespace: CHANGEME-namespace
+spec:
+  limits:
+    - type: Container
+      default: { cpu: "500m", memory: 512Mi }
+      defaultRequest: { cpu: "100m", memory: 128Mi }

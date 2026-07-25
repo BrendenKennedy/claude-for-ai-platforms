@@ -1,0 +1,93 @@
+# OpenTelemetry Collector — lands at observability/otel-collector.yaml
+#
+# Run a collector rather than exporting straight from the app: it is the one place to put PII
+# redaction, sampling, and vendor routing, so every new service inherits them for free instead of
+# each one re-implementing (and one of them forgetting).
+#
+# Canon: security.md S6 (treat everything logged as public to the team), ai-security.md AI11
+# (sensitive output filtered at the boundary), AI12 (agent behaviour reconstructable).
+
+receivers:
+  otlp:
+    protocols:
+      grpc: { endpoint: 0.0.0.0:4317 }
+      http: { endpoint: 0.0.0.0:4318 }
+
+processors:
+  batch:
+    timeout: 5s
+    send_batch_size: 1024
+
+  memory_limiter:
+    check_interval: 1s
+    limit_percentage: 80
+    spike_limit_percentage: 25
+
+  # Redaction lives HERE, not only in app code — one enforcement point, inherited by everything.
+  # Prompts and completions are not logged verbatim by default (S6). If capture is genuinely
+  # needed for debugging it is opt-in, short-retention, access-controlled, and a data-governance
+  # decision — not a default.
+  attributes/redact:
+    actions:
+      - { key: gen_ai.prompt, action: delete }
+      - { key: gen_ai.completion, action: delete }
+      - { key: http.request.header.authorization, action: delete }
+      - { key: db.statement, action: delete }
+      - { key: user.email, action: hash }
+      - { key: user.id, action: hash }
+
+  redaction/pii:
+    allow_all_keys: true
+    blocked_values:
+      - "[0-9]{3}-[0-9]{2}-[0-9]{4}" # SSN-shaped
+      - "[0-9]{13,16}" # card-shaped
+      - "(?i)(sk-ant-|sk-|ghp_|AKIA)[A-Za-z0-9_-]{16,}" # credential-shaped
+    summary: debug
+
+  resource:
+    attributes:
+      - { key: deployment.environment, value: CHANGEME-env, action: upsert }
+
+  # Tail-based sampling: decide AFTER seeing the whole trace, so every error and every slow
+  # request is kept. Head-based sampling at 1% throws away 99% of your errors, which is the
+  # opposite of what you want.
+  tail_sampling:
+    decision_wait: 10s
+    policies:
+      - name: keep-all-errors
+        type: status_code
+        status_code: { status_codes: [ERROR] }
+      - name: keep-slow
+        type: latency
+        latency: { threshold_ms: 2000 }
+      - name: keep-agent-runs
+        type: string_attribute
+        string_attribute: { key: agent.name, values: [".+"], enabled_regex_matching: true }
+      - name: sample-the-rest
+        type: probabilistic
+        probabilistic: { sampling_percentage: 5 }
+
+exporters:
+  otlphttp/traces:
+    endpoint: CHANGEME-https://traces.example.com
+  prometheus:
+    endpoint: 0.0.0.0:8889
+  debug:
+    verbosity: basic
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, attributes/redact, redaction/pii, resource, tail_sampling, batch]
+      exporters: [otlphttp/traces]
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, resource, batch]
+      exporters: [prometheus]
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, attributes/redact, redaction/pii, resource, batch]
+      exporters: [otlphttp/traces]
+  telemetry:
+    logs: { level: info }

@@ -13,6 +13,85 @@ versions follow [SemVer](https://semver.org/) per the stability contract in
 > and the stamp's commit **sha** remains the precise reference (`/upgrade`'s three-way logic
 > keys on the sha, not the number).
 
+## [1.0.0] — 2026-07-25
+
+**The AI-platform security fork.** `claude-for-datascience` 0.9.0 became `claude-for-ai-platform`:
+a scaffold for building AI platforms securely. The data-science layer is kept and regated, not
+removed — evaluating an agent is an empirical problem, and the split discipline and statistical
+honesty that make model evaluation trustworthy are what make agent evaluation trustworthy.
+
+### Added
+
+- **Policy canon — five new domains with citable rules.** `ai-security.md` (`AI1`–`AI12`: injection,
+  tool agency, memory/RAG poisoning, output handling, agent identity, blast radius) ·
+  `platform-security.md` (`P1`–`P10`) · `identity-and-access.md` (`I1`–`I9`) · `supply-chain.md`
+  (`C1`–`C8`) · `reliability.md` (`R1`–`R8`). Plus `compliance-crosswalk.md` — every rule mapped to
+  CSF 2.0 / 800-53 / ISO 27001+42001 / SOC 2 / EU AI Act, asserting conformance to none of them.
+- **`policy/frameworks/`** — 20 framework reference documents, each with publisher, version,
+  verification date, the control list, what we adopt, **what we leave**, and how each control lands
+  in a canon rule and an enforcing mechanism. Versions verified against publishers on 2026-07-25.
+- **Five always-on skills:** `agent-security` · `threat-modeling` · `observability` ·
+  `reliability-sre` · `agent-evaluation`.
+- **Eleven gated skills:** `kubernetes` · `policy-as-code` · `authn-authz` · `secrets-management` ·
+  `supply-chain-security` · `secure-cicd` · `iac-terraform` · `gitops` · `llm-red-teaming` ·
+  `guardrails` · `mcp-security`.
+- **Six agents:** `security-reviewer` · `threat-modeler` · `platform-engineer` · `sre-analyst` ·
+  `red-teamer` (scoped to this project's own systems) · `compliance-mapper`.
+- **Six hooks:** `guard-k8s-manifests.py` · `guard-iac.py` · `guard-agent-config.py` ·
+  `scan-untrusted-content.py` · `validate-manifests.py` · `run-security-tests.sh`.
+- **Seven commands:** `/threat-model` · `/sec-review` · `/harden` · `/redteam` · `/slo` ·
+  `/postmortem` · `/compliance`.
+- **`.claude/scripts/check-hooks.py`** — 50 cases across every guard hook asserting block, allow,
+  **and fail-open**. The fail-open case is the one nobody tests and the one that bites.
+- **Templates:** PSS-`restricted` Kubernetes baseline (deployment, namespace + default-deny network,
+  RBAC, quota, Kustomize overlays), Kyverno + conftest policy sets **with fixtures that must fail**,
+  security CI workflow, OTel collector with redaction wired, runbook, `.mcp.json` example, agent
+  cluster RBAC.
+- **State files:** `threat-model.md` (T9) · `slo-register.md` (T10) · `control-coverage.md` (T12) ·
+  `agent-authority.md` (T13) · `memory/incidents/`.
+- **`check-scaffold.sh` checks 7 and 8** — every canon file is registered in the `governance` skill,
+  every framework doc is in the lineage table, and every framework id cited in canon resolves.
+- **`memory/reference/architecture-security-layers.md`** — why a rule lives in canon vs a skill vs a
+  hook vs an agent, why hooks fail open in a security scaffold, and why the same constraint is
+  checked three times.
+
+### Changed
+
+- **`PROCESS.md` → 1.0.0.** Security and reliability become a **track through every phase** (§3.9)
+  rather than a review at the end: threat model at P3, controls + policy-as-code at P4, a recorded
+  adversarial run at P5, SLOs + exercised rollback + signed artifacts at P6, telemetry + an incident
+  path at P7. Adds §3.10 (incidents as a phase interrupt) and templates T9–T13. Part I gains five
+  lineage rows. **Phase numbers and names are unchanged** — the lifecycle was already
+  archetype-agnostic and renaming would have broken every cross-reference for presentational gain.
+  Also corrects the header version, which read 0.2.0 while the changelog was at 0.3.0.
+- **`security.md` retrofitted with `S1`–`S9` numbering** and rescoped to the *development loop*,
+  with a routing table to the new siblings. It was the only canon file without citable rule ids.
+- **`data-governance.md` + `D7`** (a retrieval corpus is a governed dataset and an attack surface);
+  **`model-governance.md` + `M14`–`M16`** (third-party models are pinned dependencies, prompts and
+  tool definitions are versioned artifacts, agentic systems are evaluated as trajectories).
+- **Kubernetes un-parked** — reversing a recorded decision from the parent scaffold, recorded rather
+  than performed silently. Service mesh stays parked.
+- **Canon may now cite framework control ids** (`[LLM01]`, `[CIS 5.2]`), a deliberate change from
+  the parent's zero-citation convention. Ids only; the framework text lives in `frameworks/`.
+- **Existing skills rescoped:** `containers` (hardened runtime images; k8s pointer), `serving` (LLM
+  inference: cold start, streaming/TTFT, continuous batching, token caps), `monitoring` (narrowed to
+  *model* decay), `evaluation` (boundary to `agent-evaluation`), `testing` (+ a platform/security
+  verification tier), `infra-aws` (IRSA, IaC, CI federation), `governance` (index rebuilt for 8
+  domains; triggers folded in so the new domains are reachable).
+- **`/intake`** gains platform archetypes, a **security-posture interview** (data sensitivity,
+  tenancy, exposure, agent autonomy, human-in-the-loop, regulatory), a platform-stack interview, and
+  the new canon placeholders. **`/bootstrap`** gains the platform skeleton. **`/gate`** walks the
+  §3.9 track and treats expired policy exceptions as gate debt. **`/setup`** runs `/threat-model`
+  before the P1 gate.
+- **`settings.json`:** read-only platform tooling allowed; kubeconfig, private keys, and Terraform
+  state denied; `skillListingBudgetFraction` 0.02 → 0.04; the platform lane is the default profile.
+
+### Fixed
+
+- `guard-k8s-manifests.py` checks were line-anchored on first draft, so
+  `securityContext: {runAsNonRoot: false}` in YAML inline flow form passed straight through. Caught
+  by `check-hooks.py` before it shipped.
+
 ## [0.9.0] — 2026-07-19
 
 The **dogfood refining patch**: the scaffold's first full end-to-end run on a real project

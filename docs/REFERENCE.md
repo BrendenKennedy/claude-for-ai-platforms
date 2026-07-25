@@ -18,12 +18,17 @@
 
 | Skill | What it carries |
 |---|---|
+| [`agent-evaluation`](../.claude/skills/agent-evaluation/SKILL.md) | Evaluating LLM and agentic systems — measuring whether an agent actually works, not whether its answers look plausible. |
+| [`agent-security`](../.claude/skills/agent-security/SKILL.md) | Securing systems where a model plans, remembers, and calls tools — the threat surface and the concrete defences. |
 | [`datasets`](../.claude/skills/datasets/SKILL.md) | Defining and handling a dataset — the split discipline, layout, and provenance everything downstream depends on (universal across archetypes), plus the CV lane's label… |
 | [`eda`](../.claude/skills/eda/SKILL.md) | Exploratory data analysis with discipline — understand the data before modeling it, without spending the test set. |
 | [`evaluation`](../.claude/skills/evaluation/SKILL.md) | Measuring a model — the metric that matches the task, a deterministic eval script separate from training, run comparison via the tracker, and error analysis instead of… |
 | [`notebooks`](../.claude/skills/notebooks/SKILL.md) | Jupyter in this repo — thin, exploratory, reproducible; logic lives in importable modules under `src/`, notebooks import, they don't define. |
+| [`observability`](../.claude/skills/observability/SKILL.md) | Instrumenting a platform so you can answer questions you didn't anticipate — logs, metrics, and traces via OpenTelemetry, plus the LLM/agent-specific telemetry nothing… |
+| [`reliability-sre`](../.claude/skills/reliability-sre/SKILL.md) | Site reliability engineering for LLM-backed platforms — defining what "working" means, then keeping it that way. |
 | [`reporting`](../.claude/skills/reporting/SKILL.md) | Turning finished work into deliverables — technical reports, white papers, stakeholder summaries, model cards — grounded in the repo's own records. |
 | [`statistics`](../.claude/skills/statistics/SKILL.md) | The statistical honesty layer — uncertainty on every reported number and comparisons that mean something. |
+| [`threat-modeling`](../.claude/skills/threat-modeling/SKILL.md) | Producing and maintaining the project's threat model — the artifact that says what we're defending, from whom, and what stops them. |
 | [`visualization`](../.claude/skills/visualization/SKILL.md) | Charts that inform instead of mislead — for EDA, training diagnostics, and deliverables. |
 
 ## Skills — gated (flipped by `/intake` via `skillOverrides`)
@@ -31,21 +36,32 @@
 | Skill | Kind | Default | What it carries |
 |---|---|---|---|
 | [`annotation`](../.claude/skills/annotation/SKILL.md) | lane | off | Producing labels — annotation ops for CV, the spec-first loop: spec → pilot → agreement → produce → audit → drift-check. |
+| [`authn-authz`](../.claude/skills/authn-authz/SKILL.md) | lane | on | Authentication and authorization for platform services and agents — proving who is calling, and deciding what they may do. |
 | [`config-hydra`](../.claude/skills/config-hydra/SKILL.md) | tool | on | Run configuration with Hydra (on OmegaConf) — the `conf/` tree of config groups, `@hydra.main`, the defaults list, CLI overrides, and multirun sweeps. |
 | [`config-omegaconf`](../.claude/skills/config-omegaconf/SKILL.md) | tool | off | Run configuration with plain OmegaConf (no Hydra) — YAML files merged with CLI dotlist overrides, by hand but leakage-free. |
-| [`containers`](../.claude/skills/containers/SKILL.md) | lane | off | Docker + Compose for DS — reproducible images and the local support services pipelines need. |
+| [`containers`](../.claude/skills/containers/SKILL.md) | lane | on | Docker + Compose for DS — reproducible images and the local support services pipelines need. |
 | [`data-acquisition`](../.claude/skills/data-acquisition/SKILL.md) | lane | off | Pulling data from APIs and the web — P2's ingest mechanics. |
-| [`data-dvc`](../.claude/skills/data-dvc/SKILL.md) | tool | on | Versioning data and model artifacts with DVC — large files stay out of git while a tiny pointer tracks them; a git commit + `dvc pull` reproduces the exact bytes a run… |
+| [`data-dvc`](../.claude/skills/data-dvc/SKILL.md) | tool | off | Versioning data and model artifacts with DVC — large files stay out of git while a tiny pointer tracks them; a git commit + `dvc pull` reproduces the exact bytes a run… |
 | [`env-uv`](../.claude/skills/env-uv/SKILL.md) | tool | on | The Python environment via uv — creating/syncing the venv, adding pinned deps, and the part that actually bites in CV/ML: matching the torch + CUDA wheel to the… |
 | [`finetune-unsloth`](../.claude/skills/finetune-unsloth/SKILL.md) | lane | off | Fine-tuning LLMs with Unsloth — fast QLoRA/LoRA on a single GPU. |
+| [`gitops`](../.claude/skills/gitops/SKILL.md) | lane | off | Declarative continuous delivery to Kubernetes with Argo CD or Flux — git as the source of truth for what runs, and reconciliation as the mechanism. |
+| [`guardrails`](../.claude/skills/guardrails/SKILL.md) | lane | on | Runtime input and output controls for LLM systems — the filtering layer, with an honest account of what it can and cannot buy you. |
 | [`hpo-optuna`](../.claude/skills/hpo-optuna/SKILL.md) | tool | off | Hyperparameter optimization with Optuna — studies, trials, pruning, and the leakage-safe protocol. |
+| [`iac-terraform`](../.claude/skills/iac-terraform/SKILL.md) | lane | off | Infrastructure as code with Terraform/OpenTofu — declaring cloud and cluster infrastructure so it is reviewable, reproducible, and reversible. |
 | [`infra-aws`](../.claude/skills/infra-aws/SKILL.md) | lane | off | AWS for DS infrastructure — S3 + Redshift via the AWS CLI and boto3, acting through a least-privilege `claude-for-datascience` IAM role (starter policy:… |
+| [`kubernetes`](../.claude/skills/kubernetes/SKILL.md) | lane | on | Running workloads on Kubernetes — the manifests, the operational commands, and the hardened defaults this scaffold generates. |
 | [`llm-eval`](../.claude/skills/llm-eval/SKILL.md) | lane | off | Evaluating LLMs and fine-tunes — task metrics over loss, decontaminated held-out sets, benchmark harnesses, and judge discipline. |
+| [`llm-red-teaming`](../.claude/skills/llm-red-teaming/SKILL.md) | lane | off | Adversarial testing of your own LLM and agent systems — finding the failures before someone else does, and keeping them fixed. |
 | [`local-stack`](../.claude/skills/local-stack/SKILL.md) | lane | off | The self-hosted local DS stack — offline/air-gapped twins of the cloud pieces, run via Compose. |
+| [`mcp-security`](../.claude/skills/mcp-security/SKILL.md) | lane | on | Securing the Model Context Protocol surface — the agent tool supply chain that ordinary dependency scanning cannot see. |
 | [`monitoring`](../.claude/skills/monitoring/SKILL.md) | lane | off | Production model monitoring — PROCESS.md P7 made concrete: a deployed model degrades by default; this makes it visible and actionable. |
 | [`pipelines`](../.claude/skills/pipelines/SKILL.md) | lane | off | Multi-stage CV cascades — one model's output feeding the next (detect/segment the part, then judge the crop). |
-| [`serving`](../.claude/skills/serving/SKILL.md) | lane | off | Shipping a model — batch scoring jobs and online endpoints. |
+| [`policy-as-code`](../.claude/skills/policy-as-code/SKILL.md) | lane | off | Enforcing platform rules mechanically — admission control, CI policy tests, and runtime detection, so a security rule is a check rather than a convention. |
+| [`secrets-management`](../.claude/skills/secrets-management/SKILL.md) | lane | off | Getting credentials to workloads without them landing in git, an image, or a log. |
+| [`secure-cicd`](../.claude/skills/secure-cicd/SKILL.md) | lane | on | Hardening the delivery pipeline and wiring the security gates that run in it. |
+| [`serving`](../.claude/skills/serving/SKILL.md) | lane | on | Shipping a model — batch scoring jobs and online endpoints. |
 | [`sql`](../.claude/skills/sql/SKILL.md) | lane | off | Working against a SQL database or warehouse — query-for-features discipline. |
+| [`supply-chain-security`](../.claude/skills/supply-chain-security/SKILL.md) | lane | on | Proving where artifacts came from and what's inside them — SBOM, signing, provenance, and scanning. |
 | [`tabular`](../.claude/skills/tabular/SKILL.md) | lane | off | Classical DS on structured/tabular data — the sklearn-lane discipline. |
 | [`timeseries`](../.claude/skills/timeseries/SKILL.md) | lane | off | Time-series / forecasting discipline — where random splits and vanilla metrics lie hardest. |
 | [`tracking-mlflow`](../.claude/skills/tracking-mlflow/SKILL.md) | tool | on | Recording experiments with MLflow — every train/eval run becomes a tracked, comparable, reproducible record. |
@@ -58,13 +74,20 @@
 | Command | Does |
 |---|---|
 | [`/bootstrap`](../.claude/commands/bootstrap.md) | One-time project bootstrap — generate the conf/ tree and the train/eval entry points the skills assume, then back-fill the placeholders that only become answerable once… |
+| [`/compliance`](../.claude/commands/compliance.md) | Report control coverage against the crosswalk — which canon rules are actually enforced, which are only prose, which framework controls nothing covers, and which… |
 | [`/gate`](../.claude/commands/gate.md) | Run the current phase's exit-gate review (PROCESS.md §3.8) — walk the checklist demanding written evidence, review the risk register, and record pass or gate debt in… |
+| [`/harden`](../.claude/commands/harden.md) | Audit an existing surface — cluster manifests, IaC, an agent's tool grants, or a CI pipeline — against the platform/AI security canon and produce a prioritised… |
 | [`/intake`](../.claude/commands/intake.md) | One-time onboarding — the "what are we building?" definition interview (archetype, T1, anti-pattern challenge), then the stack interview — write skillOverrides and fill… |
+| [`/postmortem`](../.claude/commands/postmortem.md) | Write a blameless postmortem for an incident — timeline, impact, systemic contributing factors, and tracked actions with owners. |
+| [`/redteam`](../.claude/commands/redteam.md) | Run an adversarial test campaign against this project's own agent/LLM system — injection, tool misuse, exfiltration, boundary and persistence tests — and turn every… |
 | [`/report`](../.claude/commands/report.md) | Draft a deliverable — technical report, white paper, stakeholder summary, or model card — assembled from the repo's own records (project definition, decision log,… |
 | [`/review`](../.claude/commands/review.md) | Review the current diff by dispatching the code-reviewer agent (correctness + the ML/CV lens) |
 | [`/scaffold-retro`](../.claude/commands/scaffold-retro.md) | Assess how the `.claude/` scaffold itself is performing — read the scaffold journal, cluster recurring friction/wins/gaps into themes, and with the user promote the… |
+| [`/sec-review`](../.claude/commands/sec-review.md) | Review the current diff through the AI-platform security lens — agent tool grants, injection paths, manifests, IAM/RBAC, token validation, secrets, supply-chain pinning… |
 | [`/setup`](../.claude/commands/setup.md) | Full one-time project setup in one guided session — git preflight, then /intake (definition + stack) → checkpoint commit → /bootstrap (skeleton, proven) → checkpoint… |
 | [`/skill-update`](../.claude/commands/skill-update.md) | Sync a tool skill to the version the project actually runs — compare its **Pinned:** line against the locked dependency, research what changed between those versions,… |
+| [`/slo`](../.claude/commands/slo.md) | Define or review service level objectives — pick SLIs users actually feel, set targets with a window and an agreed consequence, and record them in the SLO register. |
+| [`/threat-model`](../.claude/commands/threat-model.md) | Build or refresh the project's threat model — map trust boundaries, enumerate threats against STRIDE + OWASP ASI/LLM + MITRE ATLAS, and drive every one to a decision. |
 | [`/upgrade`](../.claude/commands/upgrade.md) | Upgrade this project's installed scaffold to a newer claude-for-datascience release — read the `.claude/scaffold-version` stamp, walk the CHANGELOG delta, then apply… |
 | [`/wrapup`](../.claude/commands/wrapup.md) | Wrap up the session — run the memory skill's close-out: record the session note, update the roadmap, and (if asked) branch/commit/land. |
 
@@ -73,21 +96,33 @@
 | Agent | Does | Tools | Preloaded skills |
 |---|---|---|---|
 | [`code-reviewer`](../.claude/agents/code-reviewer.md) | Reviews code changes for correctness and quality, with an ML/CV lens (device/dtype mismatches, tensor-shape/broadcasting bugs, data leakage, non-determinism,… | Bash, Read, Grep, Glob | — |
+| [`compliance-mapper`](../.claude/agents/compliance-mapper.md) | Maps what this project has actually implemented against the control crosswalk and reports the gaps — which canon rules have a real enforcing mechanism, which have only… | Read, Grep, Glob | governance |
 | [`data-engineer`](../.claude/agents/data-engineer.md) | Builds the data layer — dataset ingestion, label wrangling, format conversion, splits, dataloaders, augmentation, data-quality checks, and annotation-ops tooling (IAA… | Read, Grep, Glob, Edit, Write, Bash | datasets |
-| [`eval-analyst`](../.claude/agents/eval-analyst.md) | Designs eval harnesses and turns metrics into findings for THIS project — error analysis, per- class and per-slice breakdowns, failure-mode identification, and run… | Read, Grep, Glob, Bash | evaluation, datasets |
+| [`eval-analyst`](../.claude/agents/eval-analyst.md) | Designs eval harnesses and turns metrics into findings for THIS project — error analysis, per- class and per-slice breakdowns, failure-mode identification, and run… | Read, Grep, Glob, Bash | evaluation, datasets, agent-evaluation |
 | [`ml-engineer`](../.claude/agents/ml-engineer.md) | Builds and refactors models and train/eval loops — architectures, losses, optimizers, LR schedulers, checkpointing, mixed precision, dataloaders. | Read, Grep, Glob, Edit, Write, Bash | — |
+| [`platform-engineer`](../.claude/agents/platform-engineer.md) | Builds the platform layer — Kubernetes manifests and Kustomize overlays, Terraform infrastructure, CI/CD workflows and their security gates, admission policies,… | Read, Grep, Glob, Edit, Write, Bash | — |
+| [`red-teamer`](../.claude/agents/red-teamer.md) | Adversarially tests this project's own LLM and agent system — builds and runs attack suites covering direct and indirect prompt injection, tool misuse, data… | Read, Grep, Glob, Edit, Write, Bash | agent-security |
+| [`security-reviewer`](../.claude/agents/security-reviewer.md) | Reviews a diff or a target surface through the AI-platform security lens — agent tool grants and injection paths, model output reaching an interpreter, Kubernetes… | Bash, Read, Grep, Glob | agent-security |
 | [`software-architect`](../.claude/agents/software-architect.md) | Designs implementation plans and weighs architectural trade-offs for THIS project, pre-loaded with its core principles. | Read, Grep, Glob, Bash | — |
+| [`sre-analyst`](../.claude/agents/sre-analyst.md) | Analyses reliability — reads telemetry, logs, and traces to explain what a system is actually doing, assesses SLO and error-budget status, triages an incident to a… | Read, Grep, Glob, Bash | reliability-sre, observability |
+| [`threat-modeler`](../.claude/agents/threat-modeler.md) | Builds or refreshes the project's threat model — maps components, data flows, and trust boundaries; enumerates threats against STRIDE plus OWASP ASI/LLM and MITRE… | Read, Grep, Glob | threat-modeling |
 
 ## Hooks (wired in `settings.json`)
 
 | Hook | Event | Does |
 |---|---|---|
+| [`guard-agent-config.py`](../.claude/hooks/guard-agent-config.py) | PreToolUse · Edit|Write |  |
+| [`guard-iac.py`](../.claude/hooks/guard-iac.py) | PreToolUse · Edit|Write |  |
+| [`guard-k8s-manifests.py`](../.claude/hooks/guard-k8s-manifests.py) | PreToolUse · Edit|Write |  |
 | [`guard-notebook-outputs.py`](../.claude/hooks/guard-notebook-outputs.py) | PreToolUse · Edit|Write |  |
 | [`guard-pyproject.py`](../.claude/hooks/guard-pyproject.py) | PreToolUse · Edit|Write |  |
 | [`guard-secrets.py`](../.claude/hooks/guard-secrets.py) | PreToolUse · Edit|Write |  |
 | [`run-leakage-tests.sh`](../.claude/hooks/run-leakage-tests.sh) | Stop | a leaked split never rides out quietly. |
+| [`run-security-tests.sh`](../.claude/hooks/run-security-tests.sh) | Stop | Stop hook: the security regression tier runs before the session ends. |
+| [`scan-untrusted-content.py`](../.claude/hooks/scan-untrusted-content.py) | PostToolUse · WebFetch|Read |  |
 | [`session-orient.py`](../.claude/hooks/session-orient.py) | SessionStart · startup|clear |  |
 | [`validate-bash.sh`](../.claude/hooks/validate-bash.sh) | PreToolUse · Bash | THREE tiers, first match wins: |
+| [`validate-manifests.py`](../.claude/hooks/validate-manifests.py) | PostToolUse · Edit|Write |  |
 | [`validate-python.py`](../.claude/hooks/validate-python.py) | PostToolUse · Edit|Write |  |
 
 Also: the policy canon in [`.claude/memory/policy/`](../.claude/memory/policy/), the live

@@ -1,0 +1,84 @@
+# ServiceAccount, least-privilege RBAC, Service, and a PodDisruptionBudget.
+# P6: no wildcards, namespaced Role over ClusterRole, bound to a named SA — never `default`,
+# never `system:authenticated`, never `cluster-admin`.
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: CHANGEME-app
+  namespace: CHANGEME-namespace
+automountServiceAccountToken: false
+---
+# Most workloads need NO Kubernetes API access at all — delete this Role and its binding if so.
+# The template shows the shape for the case where it genuinely does.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: CHANGEME-app
+  namespace: CHANGEME-namespace
+rules:
+  # Enumerate exactly what is needed. `*` in apiGroups, resources, or verbs is blocked by
+  # guard-k8s-manifests.py and is how a workload compromise becomes a cluster compromise.
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    resourceNames: ["CHANGEME-app-config"] # narrow to the named object where possible
+    verbs: ["get", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: CHANGEME-app
+  namespace: CHANGEME-namespace
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: CHANGEME-app
+subjects:
+  - kind: ServiceAccount
+    name: CHANGEME-app
+    namespace: CHANGEME-namespace
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: CHANGEME-app
+  namespace: CHANGEME-namespace
+spec:
+  type: ClusterIP # never LoadBalancer/NodePort without a deliberate exposure decision
+  selector:
+    app.kubernetes.io/name: CHANGEME-app
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+---
+# reliability.md R3 — without this, a node drain takes the whole service down.
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: CHANGEME-app
+  namespace: CHANGEME-namespace
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: CHANGEME-app
+---
+# Secrets are referenced, never inlined (P7). This is an External Secrets Operator pointer:
+# the value of record lives in the secret manager, the cluster holds a short-lived cache.
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: CHANGEME-app-credentials
+  namespace: CHANGEME-namespace
+spec:
+  refreshInterval: 1h # picks up rotation without a redeploy
+  secretStoreRef:
+    name: CHANGEME-secret-store # authenticates via workload identity, NOT a stored key (I3)
+    kind: SecretStore
+  target:
+    name: CHANGEME-app-credentials
+  data:
+    - secretKey: provider_api_key
+      remoteRef:
+        key: CHANGEME/path/to/provider-api-key

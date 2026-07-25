@@ -1,5 +1,5 @@
 {
-  "_comment": "Project-shared Claude Code settings. Personal/local overrides go in settings.local.json (gitignored). Replace the example permissions below with the tools your project actually uses; keep the deny list as a safety floor.",
+  "_comment": "Project-shared Claude Code settings. Personal/local overrides go in settings.local.json (gitignored). Replace the example permissions below with the tools your project actually uses; keep the deny list as a safety floor. Full threat model: .claude/memory/policy/security.md.",
   "permissions": {
     "allow": [
       "Bash(git status:*)",
@@ -13,9 +13,41 @@
       "Bash(uv run:*)",
       "Bash(uv sync:*)",
       "Bash(uv add:*)",
-      "Bash(uvx ruff:*)"
+      "Bash(uvx ruff:*)",
+      "Bash(kubectl get:*)",
+      "Bash(kubectl describe:*)",
+      "Bash(kubectl logs:*)",
+      "Bash(kubectl top:*)",
+      "Bash(kubectl explain:*)",
+      "Bash(kubectl api-resources:*)",
+      "Bash(kubectl auth can-i:*)",
+      "Bash(kubectl auth whoami:*)",
+      "Bash(kubectl kustomize:*)",
+      "Bash(kubectl rollout status:*)",
+      "Bash(kubectl rollout history:*)",
+      "Bash(helm list:*)",
+      "Bash(helm get:*)",
+      "Bash(helm template:*)",
+      "Bash(kustomize build:*)",
+      "Bash(kubeconform:*)",
+      "Bash(conftest:*)",
+      "Bash(terraform fmt:*)",
+      "Bash(terraform validate:*)",
+      "Bash(terraform plan:*)",
+      "Bash(tofu fmt:*)",
+      "Bash(tofu validate:*)",
+      "Bash(tofu plan:*)",
+      "Bash(trivy:*)",
+      "Bash(syft:*)",
+      "Bash(grype:*)",
+      "Bash(semgrep:*)",
+      "Bash(gitleaks:*)",
+      "Bash(checkov:*)",
+      "Bash(kube-bench:*)",
+      "Bash(cosign verify:*)",
+      "Bash(cosign triangulate:*)"
     ],
-    "_allow_comment": "Covers what /wrapup (commit/branch/merge) and /bootstrap (uv, pytest, ruff) actually run. Deliberately absent: git checkout (can discard work) and git push (landing is an explicit user ask — see the memory skill).",
+    "_allow_comment": "Read-only and render-only operations across the platform toolchain, plus what /wrapup and /bootstrap actually run. Every entry here either reads state or produces output without changing anything. Deliberately absent: git checkout and git push (landing is an explicit user ask); kubectl apply/delete/edit/exec, helm install/uninstall, terraform apply/destroy, and cosign sign — those go through validate-bash.sh's ask tier so a human clicks, in every permission mode including bypassPermissions.",
     "deny": [
       "Bash(rm -rf:*)",
       "Bash(sudo:*)",
@@ -24,18 +56,40 @@
       "Read(.env)",
       "Read(.env.local)",
       "Read(.env.production)",
-      "Read(CLAUDE.local.md)"
+      "Read(CLAUDE.local.md)",
+      "Read(.kube/config)",
+      "Read(**/kubeconfig)",
+      "Read(**/*.pem)",
+      "Read(**/*.key)",
+      "Read(**/id_rsa)",
+      "Read(**/id_ed25519)",
+      "Read(.aws/credentials)",
+      "Read(**/*.tfstate)",
+      "Read(**/*.tfstate.backup)"
     ],
-    "_deny_comment": "The safety floor — secrets never enter the transcript. .env.example is deliberately NOT denied (it ships empty values and the skills read it for the expected keys); validate-bash.sh blocks shell reads of every other .env file. Full threat model: .claude/memory/policy/security.md."
+    "_deny_comment": "The safety floor — credential material never enters the transcript (security.md S3). .env.example is deliberately NOT denied (it ships empty values and the skills read it for the expected keys). Terraform state is denied because it holds every generated secret in plaintext, whatever `sensitive = true` does to the display. validate-bash.sh blocks the shell paths the Read deny can't see, including `kubectl get secret -o yaml`."
   },
-  "_skillListingBudget_comment": "The skill listing (names + descriptions, the routing table) defaults to ~1% of the context window; with this repo's full roster that silently truncates least-used descriptions. 2% (~4k tokens on a 200k window) fits the always-on set + a typical lane. If you disable many skills via skillOverrides you can remove this. Rationale: memory/reference/architecture-skills-vs-agents.md.",
-  "skillListingBudgetFraction": 0.02,
-  "_skillOverrides_comment": "Gated-skill on/off profile. `/intake` writes this — TOOL skills flip by stack choice, LANE skills flip by project archetype (cv, tabular, timeseries, LLM, monitoring-at-deploy). Chassis + the archetype-agnostic DS core skills are always on and are NOT listed here.",
+  "_skillListingBudget_comment": "The skill listing (names + descriptions, the routing table) defaults to ~1% of the context window. This fork runs a larger always-on set (the security/platform spine) plus more gated skills on by default, so 2% now truncates. 4% (~8k tokens on a 200k window) fits the always-on set plus a full platform lane. Turning off a lane a project doesn't use is free context — /intake does this, and says so in its report. Rationale: memory/reference/architecture-skills-vs-agents.md.",
+  "skillListingBudgetFraction": 0.04,
+  "_skillOverrides_comment": "Gated-skill on/off profile. `/intake` writes this — TOOL skills flip by stack choice, LANE skills flip by project archetype (agent platform, RAG service, inference platform, eval harness, MLOps platform; plus the inherited cv/tabular/timeseries/LLM model-building lanes). Chassis, the DS-core workflow skills, and the security/platform spine (agent-security, threat-modeling, observability, reliability-sre, agent-evaluation) are always on and are NOT listed here. The default profile below is the agent-platform lane; a model-building project flips most of these off and the DS lanes on.",
   "skillOverrides": {
     "env-uv": "on",
     "tracking-mlflow": "on",
     "config-hydra": "on",
-    "data-dvc": "on",
+    "containers": "on",
+    "serving": "on",
+    "kubernetes": "on",
+    "authn-authz": "on",
+    "supply-chain-security": "on",
+    "secure-cicd": "on",
+    "guardrails": "on",
+    "mcp-security": "on",
+    "policy-as-code": "off",
+    "secrets-management": "off",
+    "iac-terraform": "off",
+    "gitops": "off",
+    "llm-red-teaming": "off",
+    "data-dvc": "off",
     "tracking-wandb": "off",
     "config-omegaconf": "off",
     "finetune-unsloth": "off",
@@ -47,15 +101,14 @@
     "sql": "off",
     "data-acquisition": "off",
     "wrangling": "off",
-    "serving": "off",
     "infra-aws": "off",
-    "containers": "off",
     "local-stack": "off",
     "annotation": "off",
     "pipelines": "off",
     "training": "off"
   },
-  "_sessionStart_comment": "session-orient.py injects a 'where are we' briefing (current phase, open gate debt, last session, roadmap next) at the start of a fresh session — CLAUDE.md is the only always-loaded file; the live process state is not, so orientation would otherwise depend on a skill surfacing by description match. Matched to startup|clear only (a mid-work resume/compact still has the context). No-ops silently when no project is active (pre-/intake), so ad-hoc use isn't taxed.",
+  "_sessionStart_comment": "session-orient.py injects a 'where are we' briefing (current phase, open gate debt, threat-model age, error-budget attention, expired policy exceptions, last session, roadmap next) at the start of a fresh session — CLAUDE.md is the only always-loaded file; the live process state is not, so orientation would otherwise depend on a skill surfacing by description match. Matched to startup|clear only (a mid-work resume/compact still has the context). No-ops silently when no project is active (pre-/intake), so ad-hoc use isn't taxed.",
+  "_hooks_comment": "Guardrails against agent MISTAKES, not a sandbox against an adversary (security.md S1). They pattern-match and fail open; the real boundaries are the permission system above, the IAM policy, the RBAC binding, and admission control. Never treat a green hook as clearance. Every hook here has block/allow/fail-open cases in .claude/scripts/check-hooks.py — a guard whose fail-open path is untested either blocks everything or nothing.",
   "hooks": {
     "SessionStart": [
       {
@@ -92,6 +145,18 @@
           {
             "type": "command",
             "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/guard-secrets.py"
+          },
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/guard-k8s-manifests.py"
+          },
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/guard-iac.py"
+          },
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/guard-agent-config.py"
           }
         ]
       }
@@ -103,6 +168,19 @@
           {
             "type": "command",
             "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/validate-python.py"
+          },
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/validate-manifests.py"
+          }
+        ]
+      },
+      {
+        "matcher": "WebFetch|Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/scan-untrusted-content.py"
           }
         ]
       }
@@ -113,6 +191,10 @@
           {
             "type": "command",
             "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/run-leakage-tests.sh"
+          },
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/run-security-tests.sh"
           }
         ]
       }

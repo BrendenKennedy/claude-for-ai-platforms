@@ -1,254 +1,202 @@
-# claude-for-datascience
+# claude-for-ai-platform
 
-[![CI](https://github.com/BrendenKennedy/claude-for-datascience/actions/workflows/ci.yml/badge.svg)](https://github.com/BrendenKennedy/claude-for-datascience/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Release](https://img.shields.io/github/v/release/BrendenKennedy/claude-for-datascience)](https://github.com/BrendenKennedy/claude-for-datascience/releases)
+A Claude Code scaffold for building **AI platforms securely** — agent and LLM security, Kubernetes,
+SRE, observability, identity, and supply chain, grounded in published framework canon.
 
-A drop-in [Claude Code](https://claude.com/claude-code) configuration that turns a coding agent
-into a disciplined data-science collaborator. Four ideas:
+> Forked from [`claude-for-datascience`](https://github.com/BrendenKennedy/claude-for-datascience).
+> The data-science layer is kept, not bolted on: evaluating an AI platform is an empirical problem,
+> and the split discipline, statistical honesty, and error-analysis habits that make model evaluation
+> trustworthy are the same ones that make *agent* evaluation trustworthy.
 
-- **Process** — projects run on [`PROCESS.md`](PROCESS.md): phases with written exit gates.
-  `/gate` reviews evidence and refuses to advance on unchecked items; ad-hoc questions
-  ("plot this CSV") skip the ceremony entirely.
-- **Knowledge** — 34 skills load on demand, never all at once. Archetypes (CV · tabular ·
-  time-series · LLM · …) are *lanes* you flip on, so you never pay context for someone
-  else's domain.
-- **Enforcement** — rules that must hold are hooks and permissions, not prose: leakage tests
-  gate session end, secrets can't be written, deps go through `uv`, destructive commands get a
-  confirm dialog.
-- **Memory** — decisions, phase state, risks, and session notes persist in-repo, and every
-  number in a `/report` traces to a tracked run.
+## What this is
+
+Five ideas, in order of how much they matter:
+
+1. **Security is a track through every phase, not a review at the end.** `PROCESS.md` §3.9 puts a
+   threat model at P3, controls and policy-as-code at P4, a recorded adversarial run at P5, SLOs and
+   an exercised rollback at P6, and telemetry plus an incident path at P7. `/gate` demands evidence
+   for each — a file, a run id, a date. "We'll do a security review before launch" is the failure
+   mode this replaces.
+2. **Rules that must hold are hooks and permissions, not prose.** A privileged pod, a `0.0.0.0/0`
+   ingress rule, an unpinned MCP server, or a JWT pasted into a config file is *blocked at the
+   edit*, with a message naming the canon rule it violates. Destructive cluster and infrastructure
+   operations get a confirmation dialog that fires even in `bypassPermissions`.
+3. **Policy canon with citable rules, sourced from real frameworks.** Eight domains, each rule
+   numbered so a review finding, a hook message, or a decision log can cite exactly one
+   (`ai-security.md AI5`, `platform-security.md P1`). Twenty framework reference documents —
+   OWASP, NIST, CIS, SLSA, SPIFFE, ISO, EU AI Act — each with its version, publisher, verification
+   date, and an explicit *what we leave*.
+4. **Knowledge that surfaces when it's relevant.** 50 skills; the ones a project doesn't need are
+   off and cost nothing.
+5. **Memory across sessions.** Decisions, risks, threat models, SLOs, and incidents live in files,
+   not in a transcript that scrolls away.
+
+**It does not replace:** your tools, your judgement, a security team, a penetration test, or legal
+advice. It makes the defaults good and the omissions visible.
 
 ## Quick start
 
-Prerequisites: [Claude Code](https://claude.com/claude-code), `git`, `bash`, [`uv`](https://docs.astral.sh/uv/).
+```bash
+git clone https://github.com/BrendenKennedy/claude-for-ai-platform.git
+cd /path/to/your-project
+/path/to/claude-for-ai-platform/install.sh .    # never overwrites; safe to re-run
+```
+
+Then, in Claude Code:
+
+```
+/setup      # git preflight → /intake → /bootstrap → /threat-model → /gate (P1) → /wrapup
+```
+
+Or run the pieces yourself: `/intake` (what are we building + the security-posture interview) →
+`/bootstrap` (generate and *prove* the skeleton) → `/threat-model` → `/gate`.
+
+## The security model, stated plainly
+
+**The hooks are guardrails against agent *mistakes*, not a sandbox against an adversary.** They
+pattern-match; a determined bypass defeats them, and that is accepted — they exist to stop the common
+accident cheaply and loudly. The actual boundaries are Claude Code's permission system, the IAM
+policy, the RBAC binding, and Kubernetes admission control.
+
+The same honesty applies upward: this repo maps its rules to NIST CSF, SP 800-53, ISO 27001/42001,
+SOC 2, and the EU AI Act **for orientation**, and asserts conformance to none of them. What is
+actually implemented, with evidence, lives in `control-coverage.md` — and "not evidenced" is an
+expected status there, because an overclaimed control is worse than a missing one.
+
+Full threat model: [`.claude/memory/policy/security.md`](.claude/memory/policy/security.md).
+
+## What's in it
+
+### Policy canon — `.claude/memory/policy/`
+
+| Domain | Rules | Governs |
+|---|---|---|
+| `ai-security.md` | `AI1`–`AI12` | Agents and models in the product: injection, tool agency, memory/RAG poisoning, output handling, agent identity, blast radius |
+| `platform-security.md` | `P1`–`P10` | Clusters, workloads, images, networks, tenancy |
+| `identity-and-access.md` | `I1`–`I9` | Human and workload identity, authn/authz, tokens, delegated agent authority |
+| `supply-chain.md` | `C1`–`C8` | Dependencies, SBOM, signing, provenance, base images, model weights, MCP servers |
+| `reliability.md` | `R1`–`R8` | SLOs, error budgets, change safety, degradation, incidents |
+| `security.md` | `S1`–`S9` | The development loop: secrets, egress, the agent's own identity |
+| `data-governance.md` | `D1`–`D7` | Datasets, labels, licensing, PII, splits, retrieval corpora |
+| `model-governance.md` | `M1`–`M16` | Reproducibility, checkpoint provenance, third-party models, prompt versioning, model cards |
+
+Plus `compliance-crosswalk.md` (every rule → CSF 2.0 / 800-53 / ISO / SOC 2 / EU AI Act) and
+`frameworks/` — OWASP LLM Top 10 v2.0, OWASP Agentic Top 10 2026 (ASI01–ASI10), MITRE ATLAS, NIST AI
+RMF, CIS Kubernetes v2.0.1, NSA/CISA Kubernetes Hardening v1.2, SP 800-190, Pod Security Standards,
+SLSA, NIST SSDF + SP 800-218A, CycloneDX/SPDX, OWASP CI/CD Top 10, SP 800-63-4, OAuth 2.1/OIDC,
+SPIFFE/SPIRE, NIST CSF 2.0, SP 800-53, ISO 27001/42001, EU AI Act, and Google SRE.
+
+### Skills — `.claude/skills/`
+
+**Always-on chassis:** `process` · `governance` · `testing` · `memory` · `wave-planning`
+
+**Always-on security & platform spine:** `agent-security` · `threat-modeling` · `observability` ·
+`reliability-sre` · `agent-evaluation`
+
+**Always-on DS core:** `datasets` · `eda` · `evaluation` · `statistics` · `visualization` ·
+`notebooks` · `reporting`
+
+**Gated — platform:** `kubernetes` · `policy-as-code` · `authn-authz` · `secrets-management` ·
+`supply-chain-security` · `secure-cicd` · `iac-terraform` · `gitops` · `containers` · `serving` ·
+`monitoring` · `infra-aws` · `local-stack`
+
+**Gated — AI security:** `guardrails` · `mcp-security` · `llm-red-teaming`
+
+**Gated — tools:** `env-uv` · `tracking-mlflow` · `config-hydra` · `data-dvc` · `tracking-wandb` ·
+`config-omegaconf` · `hpo-optuna`
+
+**Gated — model-building lanes:** `training` · `annotation` · `pipelines` · `tabular` ·
+`timeseries` · `wrangling` · `sql` · `data-acquisition` · `finetune-unsloth` · `llm-eval`
+
+### Subagents — `.claude/agents/`
+
+`security-reviewer` · `threat-modeler` · `platform-engineer` · `sre-analyst` · `red-teamer` ·
+`compliance-mapper` · `code-reviewer` · `software-architect` · `data-engineer` · `ml-engineer` ·
+`eval-analyst`
+
+### Commands — `.claude/commands/`
+
+`/setup` · `/intake` · `/bootstrap` · `/threat-model` · `/sec-review` · `/harden` · `/redteam` ·
+`/slo` · `/postmortem` · `/compliance` · `/gate` · `/review` · `/report` · `/wrapup` ·
+`/skill-update` · `/upgrade` · `/scaffold-retro`
+
+### Hooks — `.claude/hooks/`
+
+`session-orient` · `validate-bash` · `guard-secrets` · `guard-pyproject` ·
+`guard-notebook-outputs` · `guard-k8s-manifests` · `guard-iac` · `guard-agent-config` ·
+`validate-python` · `validate-manifests` · `scan-untrusted-content` · `run-leakage-tests` ·
+`run-security-tests`
+
+Every hook has block / allow / **fail-open** cases in `.claude/scripts/check-hooks.py`. The
+fail-open case is the one nobody tests and the one that bites: a guard that crashes on unexpected
+input either blocks everything or nothing.
+
+## What it looks like in practice
+
+<details>
+<summary>Writing a Kubernetes manifest</summary>
+
+You ask for a deployment. What comes back is Pod Security `restricted`, digest-pinned,
+resource-limited, with a named ServiceAccount and `automountServiceAccountToken: false` — because
+that is what the template is, not because anyone remembered. If you edit it to run as root, the
+write is blocked:
+
+```
+[guard-k8s-manifests] Blocked deploy/api.yaml — platform-security canon violation:
+
+  P1  runAsNonRoot: false
+      fix: Set runAsNonRoot: true and give the container a non-zero runAsUser.
+
+  Canon: .claude/memory/policy/platform-security.md  (see also `kubernetes` skill)
+  If this is a deliberate, recorded exception, add a decision-log entry and mark the
+  resource with:  # platform-security-exception: <RULE> <reason>
+```
+
+The same constraint is checked three times — at the edit, in CI via `conftest`, and at admission via
+Pod Security and Kyverno. Only the last one is a security boundary; the first two exist so you find
+out before the rollout.
+</details>
+
+<details>
+<summary>Granting an agent a tool</summary>
+
+`agent-security` asks the question that decides the design: *if an attacker fully controlled this
+model's output, what could they reach?* The ladder is reduce agency → narrow the tool → constrain
+the argument → authorize server-side against the **user's** identity → gate irreversible actions on
+a human → cap the blast radius → and only then, detect. Teams reliably start at the last step.
+
+The grant is recorded in `agent-authority.md`, and `guard-agent-config.py` checks edits against it —
+so least agency erodes visibly, as a diff, rather than one convenient addition at a time.
+</details>
+
+<details>
+<summary>Adding an MCP server</summary>
+
+Blocked if it can't be pinned; a confirmation dialog if it can. An MCP server supplies tool
+descriptions that go straight into the model's instruction context — it is a dependency with a
+prompt-injection channel and your credentials, and neither CVE scanning nor SBOM sees any of it. The
+`mcp-security` skill covers tool poisoning, the rug pull (a *pinned* server changing its
+descriptions), cross-server shadowing, and the confused deputy.
+</details>
+
+## Verifying the scaffold itself
 
 ```bash
-git clone https://github.com/BrendenKennedy/claude-for-datascience.git ~/dev/claude-for-datascience
-cd ~/path/to/my-project
-~/dev/claude-for-datascience/install.sh .   # never overwrites; safe to re-run
+bash .claude/scripts/check-scaffold.sh    # drift, frontmatter, config, install, placeholders, docs
+python3 .claude/scripts/check-hooks.py    # every guard: blocks, allows, fails open
 ```
 
-Then, inside Claude Code:
-
-```
-/setup       # the whole sequence, one guided session — or run the pieces yourself:
-/intake      #   defines the PROJECT ("what are we building?") + picks your STACK
-/bootstrap   #   builds the SHAPE  (conf/ tree · entry points · tests — and proves they run)
-/gate        #   reviews the P1 exit gate against the definition doc
-```
-
-Or hit **"Use this template"** on GitHub to start a repo from it directly.
-
-**Docs:** [TUTORIAL.md](docs/TUTORIAL.md) — first project, hands-on, ~30 min, no dataset
-needed · [REFERENCE.md](docs/REFERENCE.md) — every skill, command, agent, and hook, one line
-each (generated from source, so it can't drift).
-
-## Use it for — and what it doesn't replace
-
-**Use it for:** running a DS project end to end (define → data → model → evaluate → report →
-ship → monitor) with the discipline enforced instead of remembered · quick ad-hoc analysis
-with honesty rules but zero ceremony · carrying one set of conventions across every project
-and teammate session.
-
-**It does not aim to replace:**
-
-- **Your tools.** MLflow/W&B, Hydra, DVC, Docker, AWS — the scaffold *drives* them with
-  version-pinned, correct usage (`/skill-update` keeps the facts current). It is not a
-  tracker, a versioner, or a cloud.
-- **Your judgment.** Gates need a human verdict; the interview challenges your choices but
-  you decide; IAM policies and label specs get reviewed by you. This is not an autopilot
-  from prompt to shipped model.
-- **A data platform.** No orchestrator, warehouse, or feature store inside — the infra lanes
-  connect to yours (or stand up local twins for offline work).
-- **Learning the craft.** It enforces good practice and explains its reasoning, but it's a
-  practitioner's harness, not a course.
-
-## How it works
-
-```mermaid
-flowchart LR
-    A["install.sh<br/><i>copy .claude/ in</i>"] --> B["/intake<br/><i>define the PROJECT<br/>pick the STACK</i>"]
-    B --> C["/bootstrap<br/><i>build the SHAPE</i>"]
-    C --> H["/gate<br/><i>pass P1</i>"]
-    H --> D
-    subgraph D["the daily loop"]
-        direction LR
-        E["work — skills<br/>auto-surface"] --> F["/review<br/>the diff"] --> G["/wrapup<br/>record + land"]
-        G -.-> E
-    end
-```
-
-| Layer | What it does |
-|---|---|
-| **Process** | [`PROCESS.md`](PROCESS.md) — CRISP-DM/TDSP/CRISP-ML(Q) hybrid with per-phase exit gates, enforced by `/gate`. |
-| **Skills** | On-demand playbooks in three tiers: always-on DS core, tool-gated (MLflow ↔ W&B, version-**pinned**), lane-gated by archetype. |
-| **Subagents** | Specialists — data engineering, model building, error analysis, review with an ML lens — preloaded with the skills their job needs. |
-| **Hooks** | Deterministic enforcement around tool calls; the security floor. |
-| **Commands** | One-time setup (`/setup`, `/intake`, `/bootstrap`), reviews (`/gate`, `/review`), deliverables (`/report`), maintenance (`/skill-update`, `/upgrade`, `/scaffold-retro`), close-out (`/wrapup`). |
-| **Memory** | Session notes, roadmap, scaffold journal, policy canon, live process state — pulled on demand, never auto-loaded. |
-
-Stack defaults: `uv` · MLflow · Hydra · DVC — swappable at `/intake`. No archetype is
-privileged: `/bootstrap` generates archetype-matched skeletons — deep-learning/CV (incl.
-anomaly-detection and cascade variants), tabular (sklearn pipelines + joblib), time-series
-(rolling-origin backtest + naive baselines built in), and the LLM lane's data-prep + golden-
-prompt eval harness.
-
-## Daily usage
-
-- **Describe the work; skills surface themselves** — "split this new dataset" loads the split
-  discipline; name a skill if the right one doesn't appear.
-- **`/gate` at phase boundaries** — unchecked items become named gate debt, not silent
-  scope-slide. Expect your first BLOCKED verdict early; that's the system working.
-- **`/review` before you commit · `/wrapup` when you stop** — the diff gets the ML lens;
-  the session gets recorded so next time "what did we decide?" has an answer.
-- **`/report` when someone needs the story** — assembled from the repo's records; evidence
-  gaps become TODOs, never plausible numbers.
-
-<details>
-<summary><b>What's in the box</b> — the full tree</summary>
-
-```
-.claude/
-├── settings.json             # permissions + hook wiring + skillOverrides
-├── agents/                   # code-reviewer · software-architect · ml-engineer
-│                             #   · eval-analyst · data-engineer · _TEMPLATE
-├── skills/
-│   ├── (chassis)             # process · governance · memory · testing · wave-planning
-│   ├── (DS core, always-on)  # datasets · eda · evaluation · statistics · visualization
-│   │                         #   · notebooks · reporting
-│   ├── (tool, /intake-gated) # env-uv · tracking-mlflow · tracking-wandb · config-hydra
-│   │                         #   · config-omegaconf · data-dvc · hpo-optuna — version-pinned;
-│   │                         #     /skill-update syncs them to the installed dep
-│   ├── (lane, /intake-gated) # cv (annotation · pipelines · training) · tabular · timeseries
-│   │                         #   · wrangling · sql · data-acquisition
-│   │                         #   · finetune-unsloth · llm-eval · serving · monitoring
-│   │                         #   · infra-aws (least-privilege IAM role) · containers (Docker/Compose)
-│   │                         #   · local-stack (offline twins: MinIO · CVAT · Postgres+extensions)
-│   │                         #   — flipped by project archetype
-│   └── _example/             # how to write a skill
-├── commands/                 # setup · intake · bootstrap · gate · skill-update · upgrade · report
-│                             #   · review · wrapup · _TEMPLATE
-├── hooks/
-│   ├── validate-python.py    # ruff format + check on every edited .py
-│   ├── validate-bash.sh      # blocks root/home wipes + .env reads; confirms destructive ops
-│   ├── guard-pyproject.py    # dependency edits must go through `uv add`
-│   ├── guard-notebook-outputs.py  # .ipynb writes must be output-stripped
-│   ├── guard-secrets.py      # blocks writes containing credential-shaped tokens
-│   └── run-leakage-tests.sh  # leakage tests run at session end; red blocks the stop
-├── scripts/                  # helpers used by hooks/commands (incl. check-scaffold, build-reference)
-├── templates/                # starter files for the target project (incl. the AWS IAM policy)
-└── memory/                   # sessions/ · roadmap.md · reference/ · policy/ (governance canon)
-                              #   · process/ (live phase state, risks, scope, decisions)
-CLAUDE.md                     # the index (all that loads every session)
-PROCESS.md                    # the phase-gate framework — phases P1–P7, exit gates, templates
-install.sh                    # the drop-in installer (ships all of the above)
-```
-
-</details>
-
-<details>
-<summary><b>What /bootstrap generates</b> (interviews you for the task, then emits the skeleton to match)</summary>
-
-The task answer genuinely reshapes the output — anomaly detection is not classification with the
-labels renamed, and a fit-not-trained method (PatchCore, PaDiM) gets a `fit.py` with no optimizer or
-epoch loop at all. Classification default:
-
-```
-conf/                      # Hydra config — every knob lives here, never in code
-  config.yaml              #   defaults list + run-wide values (seed, device, ckpt, resume)
-  model/<backbone>.yaml    #   + optimizer/ scheduler/ dataset/<name>.yaml groups
-src/<pkg>/
-  env.py                   # load_env() — dotenv, called once at each entry point's top
-  seed.py                  # seed_everything() — THE one definition of "seeded"
-  train.py                 # @hydra.main entry point; eval.py is its own entry, never a tail
-  data/splits.py           # SPLIT_SEED (fixed, NOT cfg.seed) + the split manifest
-  data/dataset.py          # torch Dataset + transforms
-  models/factory.py        # build_model(cfg) -> nn.Module
-models/                    # checkpoints: best.pt, last.pt (data-versioned, not git)
-tests/                     # tiny-data smoke + determinism + split-leakage tests
-```
-
-Plus the delivery files: `.env.example`, `.pre-commit-config.yaml`, and a CI workflow running the
-offline test tier. `/bootstrap` runs the result before it reports success — a real fit/train, an
-eval that re-loads the checkpoint, a resume.
-
-</details>
-
-<details>
-<summary><b>A project, end to end</b> (illustrative — a widget defect detector)</summary>
-
-**Day 1 — `/setup`.** The definition interview opens: *"so what are we building?"* You describe
-defect detection on a factory line. It classifies the archetype (CV, in-lane), fills the T1
-problem statement conversationally, and pushes back where it should:
-
-> *"You said accuracy as the metric — the line runs 99.5% good parts, so 'call everything good'
-> scores 99.5%. Typical practice here is per-defect recall at a fixed false-alarm rate, plus
-> calibration if the score gates shipments. Are you sure?"*
-
-The challenged decision lands in `memory/process/decision-log.md`. The stack interview confirms
-defaults, `/bootstrap` generates the skeleton **and proves it** (a real train/eval/resume on
-synthetic data — the report shows the tracker run id), and `/gate` passes P1 with the definition
-doc as evidence. Three checkpoint commits exist; `/wrapup` records the session.
-
-**Week 1 — data work.** "Split this new dataset" surfaces `datasets` (group-split, because
-multiple images share a part) and `eda` (the sample grids catch a camera whose images are 2×
-darker — logged to the risk register). Labeling starts spec-first via `annotation`: the pilot's
-inter-annotator agreement misses the written threshold, the spec gains two occlusion rulings,
-the re-pilot clears. `/gate` P2: **BLOCKED** — the label-error audit hasn't run. That's gate
-debt, recorded by name; work continues inside the phase, and nothing slides forward silently.
-
-**Week 3 — modeling.** `training` + `tracking-mlflow` conventions mean every run is seeded,
-config-snapshotted, and comparable. A promising +1.2 mAP "win" dies in review: `statistics`'
-seed-variance check shows ±1.5 across seeds. The experiment budget (written at P1, hardened at
-P5) says 40 GPU-hours remain — the sweep gets pruned accordingly.
-
-**Week 5 — ship it.** `/gate` P5 passes with the error analysis as evidence (`eval-analyst`
-produced it citable). `/report stakeholder` assembles the summary from the repo's records —
-every number carries a run id, and one claim it can't back becomes `[TODO: evidence — no
-per-camera eval run exists]` instead of a plausible guess. The registry alias moves only after
-the model card exists. `monitoring` flips on in `skillOverrides`, prediction logging wired
-before launch.
-
-The through-line: **nothing above relied on anyone remembering to be careful.** The interview
-challenged the metric, the gate refused the unaudited labels, the noise floor killed the fake
-win, and the report refused to invent the missing number — all structural.
-
-</details>
-
-<details>
-<summary><b>Troubleshooting</b></summary>
-
-- **A skill isn't surfacing** — check `skillOverrides` in `settings.json` (tool *and lane* skills
-  are gated; your lane may be off), or name the skill explicitly. For your own skills, pack the
-  frontmatter `description` with the words you'd actually type — matching happens on that text alone.
-- **MLflow file-store error on startup** — MLflow 3.x needs a database URI (`sqlite:///mlflow.db`),
-  not `./mlruns`. See the `tracking-mlflow` skill.
-- **`${oc.env:DATA_ROOT}` resolves empty** — Hydra reads the *process* env, not `.env`; the entry
-  point must call `load_env()` first (`/bootstrap` emits `src/<pkg>/env.py` for this).
-- **`torch.cuda.is_available()` is False** — wrong wheel for your CUDA/arch (common on ARM). The
-  `env-uv` skill carries the torch-index matrix and sanity check.
-- **Permission prompts on everything** — extend `permissions.allow` in `.claude/settings.json`.
-- **`install.sh` says "skip (exists)"** — the never-clobber guarantee; delete a file first if you
-  want the scaffold's copy.
-
-</details>
-
-## Security model
-
-**The hooks are guardrails against agent *mistakes*, not a sandbox against an adversary** — they
-pattern-match and fail open. The boundary is Claude Code's permission system (`settings.json`
-allow/deny), OS-level isolation, and — for cloud work — a least-privilege IAM role the agent
-structurally cannot widen. Enforced today: destructive ops get a confirm dialog in every
-permission mode, secrets stay out of the transcript and out of tracked files, deps enter only
-through `uv add`, and `git push` is always an explicit ask. Full threat model:
-[`.claude/memory/policy/security.md`](.claude/memory/policy/security.md).
+CI runs both. `check-scaffold.sh` fails if a skill exists on disk but isn't named in `CLAUDE.md` and
+this README, if a canon file isn't registered in the `governance` skill, or if a framework id cited
+in canon doesn't resolve to a document in `frameworks/` — the map and the territory are kept in sync
+mechanically, because both real bugs in this repo's history were drift of exactly that kind.
 
 ## Contributing
 
-PRs welcome — [CONTRIBUTING.md](CONTRIBUTING.md) has the bar and the stability contract.
-Architecture debates start from the recorded decisions in `.claude/memory/reference/`.
+Architecture debates start from the recorded decisions in `.claude/memory/reference/` — including
+`architecture-security-layers.md`, which explains why canon, skills, hooks, and agents divide the way
+they do, and why this fork un-parked Kubernetes. See `CONTRIBUTING.md`.
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+See [`LICENSE`](LICENSE).

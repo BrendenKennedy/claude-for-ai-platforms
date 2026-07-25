@@ -16,3 +16,35 @@ MLFLOW_TRACKING_URI=sqlite:///mlflow.db
 # WANDB_API_KEY=
 # WANDB_PROJECT=
 # WANDB_MODE=offline    # uncomment on a box without egress; ship later with `wandb sync`
+
+# --- Observability (the `observability` skill; collector config in observability/) ------------
+# The collector is where PII redaction and sampling live — export to it, not straight to a vendor.
+OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317
+OTEL_SERVICE_NAME=
+OTEL_RESOURCE_ATTRIBUTES=deployment.environment=dev
+
+# --- Model providers (the `serving` / `agent-security` skills) ---------------------------------
+# Sending data to an inference API is publishing it (security.md S7). Pin to a dated snapshot and
+# record it in the run manifest (model-governance.md M14) or your evals stop being reproducible.
+# ANTHROPIC_API_KEY=
+# ANTHROPIC_MODEL=            # a dated snapshot id, never a floating alias
+# OPENAI_API_KEY=
+
+# --- Identity (the `authn-authz` skill) --------------------------------------------------------
+# Workload credentials should NOT be here: use IRSA / Workload Identity / SPIFFE / projected
+# tokens (identity-and-access.md I3). These are the app's OIDC *client* settings, not a workload
+# credential.
+# OIDC_ISSUER=
+# OIDC_CLIENT_ID=
+# OIDC_AUDIENCE=              # what this service requires in `aud` — I6
+
+# --- Secrets backend (the `secrets-management` skill) ------------------------------------------
+# The ladder: no secret at all (workload identity) > a secret manager > encrypted in git.
+# `.env` is a DEVELOPMENT convenience — in a cluster, platform-security.md P7 applies.
+# VAULT_ADDR=
+# EXTERNAL_SECRETS_STORE=
+
+# --- Platform (the `kubernetes` / `gitops` skills) ---------------------------------------------
+# Never put a kubeconfig or its contents here — it is credential material (security.md S3).
+# KUBE_CONTEXT=              # the context name only, so scripts can assert it before acting
+# IMAGE_REGISTRY=

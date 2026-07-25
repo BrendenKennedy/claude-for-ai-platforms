@@ -198,6 +198,67 @@ elif [ -f install.sh ]; then
   fail "docs/REFERENCE.md missing — generate: python3 .claude/scripts/build-reference.py"
 fi
 
+# ---- 7. GOVERNANCE: canon is registered, and 8. FRAMEWORKS: citations resolve -----
+# Two failure modes this catches, both silent otherwise:
+#   - a canon file nobody can find, because the governance skill's index has no row for it. An
+#     unregistered domain is unreachable: nothing surfaces governance for a change it should govern.
+#   - a canon rule citing a framework control id that resolves to nothing. This fork lets canon cite
+#     ids ([LLM01], [CIS 5.2]) with the framework text living in policy/frameworks/ — that only
+#     works if the citation actually lands somewhere.
+python3 - <<'PY' || fails=$((fails + 1))
+import re, sys
+from pathlib import Path
+
+bad = 0
+policy = Path(".claude/memory/policy")
+frameworks = policy / "frameworks"
+gov = Path(".claude/skills/governance/SKILL.md")
+
+# 7. Every canon file has a row in the governance skill's Policy index.
+if gov.is_file():
+    gov_text = gov.read_text()
+    # Reference files carry no rules and are described separately, not as index rows.
+    reference = {"README.md", "compliance-crosswalk.md"}
+    for f in sorted(policy.glob("*.md")):
+        if f.name in reference or f.name.endswith("-decision-log.md"):
+            continue
+        if f.name not in gov_text:
+            print(f"FAIL  canon {f.name} has no row in the governance skill's Policy index")
+            bad += 1
+    if not frameworks.is_dir():
+        print("FAIL  .claude/memory/policy/frameworks/ is missing")
+        bad += 1
+
+# 8a. Every framework doc is listed in the frameworks README (its lineage table).
+readme = frameworks / "README.md"
+if readme.is_file():
+    listed = readme.read_text()
+    for f in sorted(frameworks.glob("*.md")):
+        if f.name == "README.md":
+            continue
+        if f.name not in listed:
+            print(f"FAIL  framework doc {f.name} is not in frameworks/README.md's lineage table")
+            bad += 1
+elif frameworks.is_dir():
+    print("FAIL  frameworks/README.md is missing — the lineage table is the index")
+    bad += 1
+
+# 8b. Framework ids cited in canon resolve to a doc that mentions them.
+if frameworks.is_dir():
+    corpus = "\n".join(p.read_text() for p in frameworks.glob("*.md"))
+    # Only ids with a stable, greppable shape. Prose citations ([SRE], [PSS]) are not checked.
+    CITED = re.compile(r"\[(LLM\d{2}|ASI\d{2}|CIS [\d.]+|SLSA[^\]]*|CICD-SEC-\d+)\]")
+    for f in sorted(policy.glob("*.md")):
+        for cite in {m.group(1) for m in CITED.finditer(f.read_text())}:
+            key = cite.split()[0] if cite.startswith("CIS") else cite
+            if key not in corpus:
+                print(f"FAIL  {f.name} cites [{cite}] but no frameworks/ doc mentions it")
+                bad += 1
+
+sys.exit(1 if bad else 0)
+PY
+ok "governance: every canon file is registered; framework docs indexed; canon citations resolve"
+
 # ---- verdict ----------------------------------------------------------------
 echo
 if [ "$fails" -gt 0 ]; then

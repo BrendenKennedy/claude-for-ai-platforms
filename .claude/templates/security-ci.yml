@@ -1,0 +1,133 @@
+# Security pipeline — lands at .github/workflows/security.yml
+#
+# Shape follows the `secure-cicd` skill: deny-all permissions granted per job, actions pinned by
+# commit SHA, fork PRs get no secrets, and cloud access is OIDC federation rather than a stored key.
+#
+# The gate ladder is ordered cheapest-first so feedback is fast. What BLOCKS vs REPORTS is the
+# judgement that decides whether this pipeline is respected or routed around: block on things with
+# a fix available and a clear owner; report the rest to the risk register. A pipeline that fails for
+# reasons the author cannot fix gets bypassed, and then the gates that mattered are bypassed too.
+
+name: security
+on:
+  pull_request: # runs in the FORK's context: no secrets, read-only token
+  push:
+    branches: [main] # trusted context, after review
+  schedule:
+    - cron: "0 6 * * 1" # re-scan published artifacts: clean at release != clean in March
+
+permissions: {} # deny-all at the top; each job grants only what it needs
+
+jobs:
+  static:
+    name: static analysis
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with: { fetch-depth: 0 } # gitleaks needs history
+
+      # A committed secret needs rotation, not a warning. Always blocks.
+      - name: secret scan
+        uses: gitleaks/gitleaks-action@83373cf2f8c4db6e24b41c1a9b086bb9619e9cd3 # v2.3.7
+        env: { GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}" }
+
+      - name: SAST
+        run: pipx run semgrep ci --config auto
+        continue-on-error: true # report tier: low-confidence rules are noise if they block
+
+      # Manifest + IaC misconfiguration. Blocks — these have owners and fixes.
+      - name: IaC and manifest config
+        run: |
+          pipx run checkov -d . --quiet --compact --framework terraform kubernetes || exit 1
+
+      - name: policy tests
+        run: |
+          if [ -d policies ]; then
+            conftest verify -p policies/                      # do the policies still reject bad input?
+            for o in deploy/overlays/*/; do
+              [ -d "$o" ] || continue
+              kubectl kustomize "$o" | conftest test -p policies/ -
+            done
+          fi
+
+  supply-chain:
+    name: dependencies and images
+    runs-on: ubuntu-latest
+    permissions: { contents: read }
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      # --ignore-unfixed on purpose: a CVE with no upstream patch is a risk-register entry, not a
+      # build failure. Blocking on unfixable findings is how pipelines lose legitimacy.
+      - name: filesystem + dependency scan
+        uses: aquasecurity/trivy-action@18f2510ee396bbf400402947b394f2dd8c87dbb0 # v0.29.0
+        with:
+          scan-type: fs
+          severity: CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+
+  evals:
+    name: agent evals and safety suite
+    runs-on: ubuntu-latest
+    permissions: { contents: read }
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: astral-sh/setup-uv@f94ec6bedd8674c4426838e6b50417d36b6ab231 # v5.3.1
+      - run: uv sync --frozen
+      # Safety suite blocks ABSOLUTELY: any regression means a previously-fixed red-team finding
+      # is back. Capability evals are compared to a baseline with tolerance, because LLM outputs
+      # are non-deterministic and a hard threshold flaps.
+      - name: safety regression (hard fail)
+        run: uv run pytest -q -k "injection or redteam or red_team" evals tests
+      - name: capability evals (vs baseline)
+        run: uv run python -m evals.run --compare-baseline --tolerance 0.02
+
+  build-and-attest:
+    name: build, sign, attest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write # OIDC — no long-lived cloud or signing keys anywhere (C6, I3)
+      attestations: write # SLSA build provenance, platform-signed (C4)
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: build
+        id: build
+        run: |
+          echo "CHANGEME: build the image, then:"
+          echo "digest=sha256:CHANGEME" >> "$GITHUB_OUTPUT"
+
+      - name: SBOM (from the built artifact, not the source tree)
+        run: |
+          syft "${IMAGE}@${DIGEST}" -o cyclonedx-json > sbom.json
+        env:
+          IMAGE: CHANGEME-registry.example.com/CHANGEME-app
+          DIGEST: ${{ steps.build.outputs.digest }}
+
+      - name: image vulnerability scan
+        run: grype "${IMAGE}@${DIGEST}" --fail-on critical
+        env:
+          IMAGE: CHANGEME-registry.example.com/CHANGEME-app
+          DIGEST: ${{ steps.build.outputs.digest }}
+
+      - name: sign + attach SBOM (keyless, Fulcio + Rekor)
+        run: |
+          cosign sign --yes "${IMAGE}@${DIGEST}"
+          cosign attest --yes --predicate sbom.json --type cyclonedx "${IMAGE}@${DIGEST}"
+        env:
+          IMAGE: CHANGEME-registry.example.com/CHANGEME-app
+          DIGEST: ${{ steps.build.outputs.digest }}
+
+      - name: build provenance (SLSA L2+)
+        uses: actions/attest-build-provenance@520d128f165991a6c774bcb264f323e3d70747f4 # v2.2.0
+        with:
+          subject-name: CHANGEME-registry.example.com/CHANGEME-app
+          subject-digest: ${{ steps.build.outputs.digest }}
+# Verification happens at admission (policy-as-code `verifyImages`) — signing without verifying
+# changes nothing. See supply-chain.md C3.
