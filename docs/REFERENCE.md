@@ -37,6 +37,7 @@
 |---|---|---|---|
 | [`annotation`](../.claude/skills/annotation/SKILL.md) | lane | off | Producing labels — annotation ops for CV, the spec-first loop: spec → pilot → agreement → produce → audit → drift-check. |
 | [`authn-authz`](../.claude/skills/authn-authz/SKILL.md) | lane | on | Authentication and authorization for platform services and agents — proving who is calling, and deciding what they may do. |
+| [`caching-and-queues`](../.claude/skills/caching-and-queues/SKILL.md) | lane | off | Caches, queues, and streams — Redis, Kafka, SQS/Pub-Sub — and the delivery semantics you actually get. |
 | [`config-hydra`](../.claude/skills/config-hydra/SKILL.md) | tool | on | Run configuration with Hydra (on OmegaConf) — the `conf/` tree of config groups, `@hydra.main`, the defaults list, CLI overrides, and multirun sweeps. |
 | [`config-omegaconf`](../.claude/skills/config-omegaconf/SKILL.md) | tool | off | Run configuration with plain OmegaConf (no Hydra) — YAML files merged with CLI dotlist overrides, by hand but leakage-free. |
 | [`containers`](../.claude/skills/containers/SKILL.md) | lane | on | Docker + Compose for DS — reproducible images and the local support services pipelines need. |
@@ -45,18 +46,23 @@
 | [`env-uv`](../.claude/skills/env-uv/SKILL.md) | tool | on | The Python environment via uv — creating/syncing the venv, adding pinned deps, and the part that actually bites in CV/ML: matching the torch + CUDA wheel to the… |
 | [`finetune-unsloth`](../.claude/skills/finetune-unsloth/SKILL.md) | lane | off | Fine-tuning LLMs with Unsloth — fast QLoRA/LoRA on a single GPU. |
 | [`gitops`](../.claude/skills/gitops/SKILL.md) | lane | off | Declarative continuous delivery to Kubernetes with Argo CD or Flux — git as the source of truth for what runs, and reconciliation as the mechanism. |
+| [`graph-stores`](../.claude/skills/graph-stores/SKILL.md) | lane | off | Graph databases and knowledge graphs — Neo4j/Cypher, Apache AGE inside Postgres, and property-graph vs RDF. |
 | [`guardrails`](../.claude/skills/guardrails/SKILL.md) | lane | on | Runtime input and output controls for LLM systems — the filtering layer, with an honest account of what it can and cannot buy you. |
 | [`hpo-optuna`](../.claude/skills/hpo-optuna/SKILL.md) | tool | off | Hyperparameter optimization with Optuna — studies, trials, pruning, and the leakage-safe protocol. |
 | [`iac-terraform`](../.claude/skills/iac-terraform/SKILL.md) | lane | off | Infrastructure as code with Terraform/OpenTofu — declaring cloud and cluster infrastructure so it is reviewable, reproducible, and reversible. |
-| [`infra-aws`](../.claude/skills/infra-aws/SKILL.md) | lane | off | AWS for DS infrastructure — S3 + Redshift via the AWS CLI and boto3, acting through a least-privilege `claude-for-datascience` IAM role (starter policy:… |
+| [`infra-aws`](../.claude/skills/infra-aws/SKILL.md) | lane | off | AWS for AI platforms — acting through a least-privilege IAM role, across the six surfaces a platform uses. |
+| [`infra-azure`](../.claude/skills/infra-azure/SKILL.md) | lane | off | Azure for AI platforms — the six surfaces a platform actually uses, with least privilege first. |
+| [`infra-gcp`](../.claude/skills/infra-gcp/SKILL.md) | lane | off | Google Cloud for AI platforms — the six surfaces a platform actually uses, with least privilege first. |
 | [`kubernetes`](../.claude/skills/kubernetes/SKILL.md) | lane | on | Running workloads on Kubernetes — the manifests, the operational commands, and the hardened defaults this scaffold generates. |
 | [`llm-eval`](../.claude/skills/llm-eval/SKILL.md) | lane | off | Evaluating LLMs and fine-tunes — task metrics over loss, decontaminated held-out sets, benchmark harnesses, and judge discipline. |
 | [`llm-red-teaming`](../.claude/skills/llm-red-teaming/SKILL.md) | lane | off | Adversarial testing of your own LLM and agent systems — finding the failures before someone else does, and keeping them fixed. |
 | [`local-stack`](../.claude/skills/local-stack/SKILL.md) | lane | off | The self-hosted local DS stack — offline/air-gapped twins of the cloud pieces, run via Compose. |
 | [`mcp-security`](../.claude/skills/mcp-security/SKILL.md) | lane | on | Securing the Model Context Protocol surface — the agent tool supply chain that ordinary dependency scanning cannot see. |
 | [`monitoring`](../.claude/skills/monitoring/SKILL.md) | lane | off | Production model monitoring — PROCESS.md P7 made concrete: a deployed model degrades by default; this makes it visible and actionable. |
+| [`object-and-lakehouse`](../.claude/skills/object-and-lakehouse/SKILL.md) | lane | off | Object storage and analytical table formats — S3/GCS/Azure Blob, MinIO, Parquet, and Iceberg/Delta. |
 | [`pipelines`](../.claude/skills/pipelines/SKILL.md) | lane | off | Multi-stage CV cascades — one model's output feeding the next (detect/segment the part, then judge the crop). |
 | [`policy-as-code`](../.claude/skills/policy-as-code/SKILL.md) | lane | off | Enforcing platform rules mechanically — admission control, CI policy tests, and runtime detection, so a security rule is a check rather than a convention. |
+| [`relational-stores`](../.claude/skills/relational-stores/SKILL.md) | lane | off | The application database — the OLTP side of Postgres/MySQL that analytics SQL doesn't cover. |
 | [`secrets-management`](../.claude/skills/secrets-management/SKILL.md) | lane | off | Getting credentials to workloads without them landing in git, an image, or a log. |
 | [`secure-cicd`](../.claude/skills/secure-cicd/SKILL.md) | lane | on | Hardening the delivery pipeline and wiring the security gates that run in it. |
 | [`serving`](../.claude/skills/serving/SKILL.md) | lane | on | Shipping a model — batch scoring jobs and online endpoints. |
@@ -67,6 +73,8 @@
 | [`tracking-mlflow`](../.claude/skills/tracking-mlflow/SKILL.md) | tool | on | Recording experiments with MLflow — every train/eval run becomes a tracked, comparable, reproducible record. |
 | [`tracking-wandb`](../.claude/skills/tracking-wandb/SKILL.md) | tool | off | Recording experiments with Weights & Biases — every train/eval run becomes a tracked, comparable, reproducible record. |
 | [`training`](../.claude/skills/training/SKILL.md) | lane | off | The train / fine-tune loop conventions — every run reproducible, resumable, tracked. |
+| [`vector-stores`](../.claude/skills/vector-stores/SKILL.md) | lane | off | Vector search for retrieval — choosing a store, indexing it, and getting relevant results back. |
+| [`workflow-orchestration`](../.claude/skills/workflow-orchestration/SKILL.md) | lane | off | Scheduled and event-driven workflow engines — Airflow, Dagster, Prefect, Temporal, Argo Workflows — and which is actually for what. |
 | [`wrangling`](../.claude/skills/wrangling/SKILL.md) | lane | off | Pandas data manipulation without silent corruption. |
 
 ## Commands
@@ -88,7 +96,7 @@
 | [`/skill-update`](../.claude/commands/skill-update.md) | Sync a tool skill to the version the project actually runs — compare its **Pinned:** line against the locked dependency, research what changed between those versions,… |
 | [`/slo`](../.claude/commands/slo.md) | Define or review service level objectives — pick SLIs users actually feel, set targets with a window and an agreed consequence, and record them in the SLO register. |
 | [`/threat-model`](../.claude/commands/threat-model.md) | Build or refresh the project's threat model — map trust boundaries, enumerate threats against STRIDE + OWASP ASI/LLM + MITRE ATLAS, and drive every one to a decision. |
-| [`/upgrade`](../.claude/commands/upgrade.md) | Upgrade this project's installed scaffold to a newer claude-for-datascience release — read the `.claude/scaffold-version` stamp, walk the CHANGELOG delta, then apply… |
+| [`/upgrade`](../.claude/commands/upgrade.md) | Upgrade this project's installed scaffold to a newer claude-for-ai-platform release — read the `.claude/scaffold-version` stamp, walk the CHANGELOG delta, then apply… |
 | [`/wrapup`](../.claude/commands/wrapup.md) | Wrap up the session — run the memory skill's close-out: record the session note, update the roadmap, and (if asked) branch/commit/land. |
 
 ## Agents

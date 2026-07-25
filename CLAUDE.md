@@ -71,7 +71,12 @@ Auto-surface by description (that text is the entire routing surface — see
 - **Gated** (`/intake` flips via `skillOverrides`; off = zero context cost):
   - *platform:* `kubernetes` · `policy-as-code` · `authn-authz` · `secrets-management` ·
     `supply-chain-security` · `secure-cicd` · `iac-terraform` · `gitops` · `containers` ·
-    `serving` · `monitoring` · `infra-aws` · `local-stack`
+    `serving` · `monitoring`
+  - *cloud:* `infra-aws` · `infra-gcp` · `infra-azure` · `local-stack` — each cloud skill carries
+    the same six sections (identity + workload identity · managed k8s · serverless · managed DBs ·
+    native CI/CD · AI services) so they're diffable when moving between them
+  - *data & workflow:* `vector-stores` · `graph-stores` · `relational-stores` ·
+    `caching-and-queues` · `object-and-lakehouse` · `workflow-orchestration`
   - *AI security:* `guardrails` · `mcp-security` · `llm-red-teaming`
   - *tools:* `env-uv` (on) · `tracking-mlflow` (on) · `config-hydra` (on) · `data-dvc` ·
     `tracking-wandb` · `config-omegaconf` · `hpo-optuna`

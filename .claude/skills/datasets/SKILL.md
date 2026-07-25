@@ -16,6 +16,11 @@ description: >
 
 # datasets — split discipline, provenance, and (for CV) label formats
 
+> **Where the data physically lives** — object storage layout, Parquet, Iceberg/Delta table formats,
+> partitioning — is `object-and-lakehouse`. This skill owns what a dataset *is* and the discipline
+> around it; that one owns the bytes. A retrieval corpus is a dataset under `data-governance.md`
+> `D7`, with its own skill for the store (`vector-stores`).
+>
 > On-demand: load this before you make a split, add/convert annotations, compute dataset stats, or wire a
 > new dataset in. It carries the discipline that keeps results honest — split once, respect it everywhere,
 > and never let the eval set touch training. The `training`/`evaluation` skills consume what you define

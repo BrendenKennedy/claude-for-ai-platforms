@@ -12,8 +12,9 @@ description: >
   injection, agent permissions, least agency, RBAC, pod security, privileged container, network
   policy, OAuth, JWT, token scope, rotate credential, SBOM, signing, provenance, MCP server, SLO,
   error budget, incident, postmortem, license, model card, phase gate, OWASP, NIST, CIS, SLSA,
-  audit, control mapping. Policy text lives only in the canon files — this skill indexes and never
-  restates.
+  audit, control mapping, multi-tenant isolation, tenant scoping, encryption at rest, backup and
+  restore, data retention, delete the data, public database, default credentials, cloud IAM, least
+  privilege. Policy text lives only in the canon files — this skill indexes and never restates.
 ---
 
 # Governance — the index + access protocol over this repo's policy

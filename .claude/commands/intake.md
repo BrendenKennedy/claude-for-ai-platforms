@@ -150,6 +150,22 @@ present those as the pre-selected option and confirm, don't re-ask blind:
   since `model-governance.md` `M16` makes a recorded run part of release evidence.)* Flips
   `llm-red-teaming`.
 
+**Data tier** — ask which stores the project will actually run. Each is off unless named; a store
+nobody uses is free context, so don't turn one on speculatively:
+
+- **Transactional database** — Postgres *(default)* / MySQL / none. Flips `relational-stores`.
+- **Vector search** — pgvector *(default if Postgres)* / Qdrant / Weaviate / Milvus / a managed
+  service / none. Flips `vector-stores`. **Say out loud that pgvector on an existing Postgres is
+  usually the right first answer** — it is one fewer system to operate, secure, and back up.
+- **Graph** — none *(default)* / Apache AGE in Postgres / Neo4j. Flips `graph-stores`.
+- **Cache / queue / stream** — none *(default)* / Redis / Kafka / a managed queue. Flips
+  `caching-and-queues`.
+- **Object storage + table formats** — object storage only *(default when there's a cloud)* /
+  Iceberg or Delta / none. Flips `object-and-lakehouse`.
+- **Workflow orchestration** — none *(default — a `CronJob` plus good logging handles a surprising
+  amount)* / Airflow / Dagster / Prefect / Temporal / Argo Workflows. Flips
+  `workflow-orchestration`. Note this is **not** the same as `pipelines`, which is ML-cascade seams.
+
 Capture the answers before touching any file.
 
 ## 2. Write `settings.json` `skillOverrides`
@@ -191,6 +207,14 @@ Edit `.claude/settings.json` — set each key to `"on"` or `"off"` from the answ
 | `guardrails` | the project runs a model in front of users — input/output filtering, structured-output validation, PII redaction. **On by default for agent-platform and RAG lanes** |
 | `mcp-security` | the project connects MCP servers or third-party agent tools. **On by default for the agent-platform lane** |
 | `llm-red-teaming` | there will be an adversarial suite — on by default for any agent platform (`M16`) |
+| `infra-gcp` | cloud = GCP |
+| `infra-azure` | cloud = Azure |
+| `relational-stores` | the project runs a transactional database (as opposed to only querying a warehouse — that's `sql`) |
+| `vector-stores` | the project does vector/semantic retrieval. **On by default for the RAG-service and agent-platform lanes** |
+| `graph-stores` | the project uses a graph store or builds a knowledge graph |
+| `caching-and-queues` | the project runs a cache, a queue, or a stream |
+| `object-and-lakehouse` | the project stores data in object storage, or uses Parquet/Iceberg/Delta |
+| `workflow-orchestration` | the project runs scheduled or event-driven workflows on a real engine |
 
 **Platform-lane defaults**, unless the interview says otherwise: `kubernetes`, `authn-authz`,
 `supply-chain-security`, `secure-cicd`, `guardrails`, `mcp-security`, `containers`, `serving` on;

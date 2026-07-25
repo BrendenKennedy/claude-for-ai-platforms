@@ -13,6 +13,55 @@ versions follow [SemVer](https://semver.org/) per the stability contract in
 > and the stamp's commit **sha** remains the precise reference (`/upgrade`'s three-way logic
 > keys on the sha, not the number).
 
+## [1.1.0] — 2026-07-25
+
+**The supporting tier.** v1.0.0 covered the platform substrate (Kubernetes, policy, identity, supply
+chain, observability) and the agent layer. This fills the tier between them: the stores an AI
+platform runs on, the engines that move data between them, and the clouds that host it.
+
+### Added
+
+- **Six data and workflow skills**, all gated off: `vector-stores` (index types, chunking, hybrid
+  search, reranking, and tenant filtering **in the query, not the prompt**) · `graph-stores` (Neo4j,
+  Apache AGE, and the honest test of whether a graph earns itself over a join) · `relational-stores`
+  (the OLTP side `sql` never covered — migrations, pooling, indexes, transactions) ·
+  `caching-and-queues` (idempotency, DLQs, backpressure, and why "exactly-once" is mostly marketing)
+  · `object-and-lakehouse` (Parquet, Iceberg/Delta, the small-files problem) ·
+  `workflow-orchestration` (Airflow/Dagster/Prefect/Temporal/Argo — and the orchestrator as a
+  high-privilege system that runs arbitrary code on a schedule).
+- **`infra-gcp` and `infra-azure`**, and `infra-aws` expanded from S3+Redshift to the six surfaces a
+  platform uses. All three carry the same section shape — identity and workload identity, managed
+  Kubernetes, serverless, managed databases, cloud-native CI/CD, AI services — so a team moving
+  between clouds can diff them. GCP and Azure include AWS-equivalents tables.
+- **Canon `D8`–`D10` and `P11`.** `D8` store-level tenancy enforced by the query, not the caller (the
+  generalisation of `D7` across vector, graph, relational, and cache). `D9` encryption at rest and in
+  transit, including backups, replicas, and derived indexes. `D10` **tested restore, and deletion
+  that reaches derived artifacts** — embeddings, caches, replicas, snapshots; the extension of `D6`
+  that actually bites. `P11` data stores never internet-reachable and never default-credentialed.
+- **`P11` enforcement in `guard-iac.py`** — one rule, three clouds, three spellings: AWS
+  `publicly_accessible`, GCP Cloud SQL `ipv4_enabled`, Azure `public_network_access_enabled`, plus
+  default database credentials. Six new cases in `check-hooks.py` (56 total).
+- `identity-and-access.md` `I3` gains a per-environment workload-identity table (SPIRE, projected
+  k8s tokens, IRSA/Pod Identity, GCP Workload Identity Federation, Azure Workload Identity, CI OIDC).
+
+### Changed
+
+- **`docs/TUTORIAL.md` rewritten** as an agent-platform walkthrough that deliberately shows the
+  friction — a guard hook refusing a weakened manifest, and a gate returning BLOCKED. A tutorial
+  where everything succeeds teaches nothing about a scaffold whose value is refusing things.
+- **`PROCESS.md` Appendix A replaced** — the Dota 2 predictor becomes an internal document-QA agent
+  platform, now also filling T9 (threat model, three threats driven to decisions) and T13 (agent
+  authority, with budgets that fail closed).
+- **`local-stack` gains the AI/ML service catalogue** — vLLM, Ollama, Triton, Qdrant, Neo4j, MLflow,
+  Langfuse, Ray, Airflow/Dagster, Redis — with the note that nearly all of them default to no
+  authentication, and the `127.0.0.1` binding habit that keeps that from becoming a `P11` incident.
+- **`serving` deepened on self-hosted inference** — continuous batching, KV-cache as the real
+  concurrency limit, prefix caching, tensor parallelism, and quantization measured on your own eval
+  set rather than a published perplexity number.
+- `secure-cicd` gains a cloud-native CI/CD section; `sql`, `datasets`, and `governance` gain
+  boundaries and triggers for the new skills.
+- `/intake` gains a data-tier interview and nine new override rows.
+
 ## [1.0.0] — 2026-07-25
 
 **The AI-platform security fork.** `claude-for-datascience` 0.9.0 became `claude-for-ai-platform`:

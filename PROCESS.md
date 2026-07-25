@@ -567,28 +567,55 @@ Run this loop across three or four projects and the result is a personal methodo
 
 ---
 
-## Appendix A — Worked example: Dota 2 pre-match outcome predictor (v1)
+## Appendix A — Worked example: internal document-QA agent platform (v1)
 
-A partial fill to show intended use.
+A partial fill to show intended use. Note that the security artifacts (T9, T13) are filled at P3
+alongside the architecture, not retrofitted before launch.
 
 **T1 Problem Statement (abridged)**
-- **Target:** P(Radiant win) at draft completion, pre-match, professional matches
-- **Consumer/decision:** self — compare model probability vs. bookmaker implied probability; flag positive-EV divergences
-- **Constraints:** ~2 weeks to TI; OpenDota free tier (rate-limited); solo
-- **Success metric:** log loss & Brier score vs. bookmaker implied probabilities (calibration matters more than accuracy)
-- **Non-ML benchmark:** always predict the side with higher aggregate hero win rate this patch
-- **Kill criteria:** if v1 cannot beat the naive benchmark on a temporal holdout, stop feature-stacking and re-examine the data before adding model complexity
+- **Target:** answer employee questions from the internal wiki + policy docs, with citations, and
+  file a ticket when it cannot answer
+- **Consumer/decision:** internal staff; replaces the search-then-skim loop. Success is measured by
+  *deflected support tickets*, not by answer plausibility
+- **Constraints:** one quarter; two engineers; the wiki is 40k pages across 6 spaces with per-space
+  access control that the platform **must** honour
+- **Success metric:** ≥70% task success on a 150-question hand-built eval set, **0 cross-space
+  disclosures**, p95 time-to-first-token < 2s
+- **Non-ML benchmark:** existing wiki keyword search, scored on the same eval set — if RAG cannot
+  beat it, the retrieval layer is the problem, not the model
+- **Kill criteria:** if v1 cannot beat keyword search on the eval set, stop and fix retrieval before
+  adding an agent loop or a bigger model
 
 **Risk register (top entries)**
-| # | Risk | Mitigation |
-|---|------|------------|
-| 1 | Balance patch drops before TI, invalidating hero-mechanics features | Key hero data on `hero_id + patch`; snapshot dotaconstants per patch; retrain on patch boundary |
-| 2 | API rate limits vs. deadline | Cache every raw response to disk; budget calls/day in the ingest plan |
-| 3 | Feature leakage via historical aggregates | Per-feature temporal review (P4 gate); temporal train/test split |
+| # | Risk | Source | Mitigation | Review by |
+|---|------|--------|------------|-----------|
+| 1 | Cross-space disclosure — a user sees a document their wiki permissions forbid | Threat model | Tenant/space filter in the retrieval query, not the prompt (`D8`); cross-space negative tests in CI | ongoing |
+| 2 | Indirect injection via a wiki page anyone can edit | Threat model | Least agency — the agent has no write tools (`AI2`); retrieved content delimited and labelled (`AI1`) | ongoing |
+| 3 | Answers confidently wrong on policy questions with legal weight | P1 framing | Groundedness metric + mandatory citations; refusal path when context is insufficient | P5 gate |
+| 4 | Embedding model updated by the provider, silently changing retrieval | Threat model | Pin the model version (`M14`); reindex is a planned migration, not a surprise | P6 gate |
 
 **Scope ledger**
-- **v1:** hero composition + mechanics features only, pre-match
-- **Parking lot:** player-hero performance, playstyle features, live in-match models (15/30/45 min), ensemble weighting, odds-scraper automation
+- **v1:** read-only Q&A over 2 of the 6 spaces, citations required, no write actions
+- **Parking lot:** ticket filing (needs `AI3` human gate), the remaining 4 spaces, conversational
+  memory (adds `ASI06` surface), Slack integration, multi-step research agent
+
+**T9 Threat model (abridged — the top three, each driven to a decision)**
+| # | Boundary | Threat | Framework | Decision | Control location |
+|---|---|---|---|---|---|
+| 1 | retrieved document → prompt | A wiki page containing instructions redirects the agent | LLM01 / ASI01 | **Mitigated** | `AI2` (no write tools) + delimiting in `src/rag/prompt.py:40` |
+| 2 | retriever → user | Retrieval returns a document from a space the user cannot read | ASI03 / LLM02 | **Mitigated** | `D8`, filter in `src/rag/retrieve.py:22`; negative test `tests/test_space_isolation.py` |
+| 3 | agent → wiki API | The agent's service account can read all 6 spaces, not just the user's | ASI03 | **Accepted, v1** | Owner: platform lead. Compensating: query-time filter (#2). Review by: before space 3 is added |
+
+*Out of scope for v1: the wiki itself (upstream system), and the identity provider.*
+
+**T13 Agent authority**
+| Agent | Tool | Scope | Reaches | Reversible | Human gate |
+|---|---|---|---|---|---|
+| `wiki-qa` | `search_wiki(query, space_ids)` | space_ids from the caller's session, never a parameter | wiki read API, 2 spaces | yes (read-only) | no |
+| `wiki-qa` | `get_page(page_id)` | re-checks the caller's permission server-side (`I4`) | wiki read API | yes | no |
+
+Budgets: 8k tokens/run · $0.05/run · 30s wall-clock · 6 tool calls · depth 1 — all failing **closed**.
+No write tools in v1; ticket filing is parked precisely because it would need an `AI3` human gate.
 
 ---
 

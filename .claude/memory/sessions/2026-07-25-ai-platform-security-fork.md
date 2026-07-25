@@ -38,3 +38,42 @@ a rename.
 - Appendix A of `PROCESS.md` is still the Dota 2 worked example; an AI-platform one would read better.
 - No `*-decision-log.md` files exist for the new canon domains yet, correctly — they are created on
   the first judgment call, and their absence means no exception has been granted.
+
+---
+
+## Increment 2 (same day) — supporting tier + the two loose ends
+
+**Focus:** the tier between the platform substrate and the agent layer — stores, workflow engines,
+and clouds — plus the TUTORIAL and Appendix A rewrites flagged at the v1.0.0 handoff.
+
+### State
+
+v1.1.0, CI green. 58 skills (17 always-on, 11 gated-on, 30 gated-off). Live description budget
+7,108 / 8,000 tokens — the eight new skills are all gated off, so they cost nothing until `/intake`
+turns one on. `check-hooks.py` now 56 cases.
+
+Added: `vector-stores`, `graph-stores`, `relational-stores`, `caching-and-queues`,
+`object-and-lakehouse`, `workflow-orchestration`, `infra-gcp`, `infra-azure`; `infra-aws` expanded
+from S3+Redshift to six platform surfaces. Canon `D8`–`D10` and `P11`, with `P11` enforced in
+`guard-iac.py` across all three clouds. `local-stack` gained the AI/ML service catalogue; `serving`
+gained self-hosted inference depth.
+
+### Gaps this closed, worth naming
+
+`data-governance.md` `D7` had required tenant-scoped retrieval since v1.0.0 and **nothing told anyone
+how** — `vector-stores` is now that how. Similarly `D6` said delete the data and nothing said the
+embeddings survive; `D10` says it now.
+
+### Decisions
+
+`workflow-orchestration` is a new skill rather than an extension of `pipelines` — they share a word
+and nothing else. Recorded in `memory/process/decision-log.md`.
+
+### Still open
+
+- **The GitHub repo still does not exist** (403 on `POST /user/repos` — session scope). Unchanged
+  from the v1.0.0 handoff; everything is on the branch.
+- `infra-gcp`/`infra-azure` are authored from current knowledge, not verified against a live
+  account. Both carry the usual `**Pinned:** unpinned` caveat, and cloud service names move — the
+  first project on either should run `/skill-update`.
+- SageMaker remains out of scope in `infra-aws`, now stated explicitly rather than implied.

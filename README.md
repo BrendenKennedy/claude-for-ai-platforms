@@ -98,7 +98,12 @@ SPIFFE/SPIRE, NIST CSF 2.0, SP 800-53, ISO 27001/42001, EU AI Act, and Google SR
 
 **Gated — platform:** `kubernetes` · `policy-as-code` · `authn-authz` · `secrets-management` ·
 `supply-chain-security` · `secure-cicd` · `iac-terraform` · `gitops` · `containers` · `serving` ·
-`monitoring` · `infra-aws` · `local-stack`
+`monitoring`
+
+**Gated — cloud:** `infra-aws` · `infra-gcp` · `infra-azure` · `local-stack`
+
+**Gated — data & workflow:** `vector-stores` · `graph-stores` · `relational-stores` ·
+`caching-and-queues` · `object-and-lakehouse` · `workflow-orchestration`
 
 **Gated — AI security:** `guardrails` · `mcp-security` · `llm-red-teaming`
 

@@ -148,6 +148,21 @@ jobs:
 
 Full working template: `.claude/templates/security-ci.yml`.
 
+## Cloud-native CI/CD — same bar, different buttons
+
+CodePipeline/CodeBuild, Cloud Build, and Azure Pipelines are held to everything above; only the
+mechanism changes. The per-cloud detail is in `infra-aws` / `infra-gcp` / `infra-azure`. The four
+things that transfer unchanged:
+
+1. **A least-privilege service identity per pipeline** — not the default build service account, which
+   is broad on every cloud (`I3`).
+2. **No stored credentials.** The build already has an identity; use it. Cross-cloud or
+   cloud-from-GitHub means OIDC federation with the trust scoped to repo **and** branch (`C6`).
+3. **Untrusted-contributor builds receive no secrets** — the PPE rule (`CICD-SEC-4`) is not a
+   GitHub-specific concern.
+4. **Artifact verification at deploy**, not just signing at build (`C3`). Each cloud has the
+   mechanism: Binary Authorization on GCP, image signing verified at admission on EKS/AKS.
+
 ## Runners
 
 Hosted runners are ephemeral and isolated by the provider — the usual right choice. **Self-hosted

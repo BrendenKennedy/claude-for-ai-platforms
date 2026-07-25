@@ -57,16 +57,48 @@ CHECKS = [
         "Enumerate the actions this role genuinely needs.",
     ),
     (
-        "P8",
+        "D9",
         "storage encryption disabled",
-        re.compile(r"(encrypted|storage_encrypted|encryption_enabled)\s*=\s*false"),
-        "Encrypt at rest. This is a one-word change now and a migration later.",
+        re.compile(
+            r"(encrypted|storage_encrypted|encryption_enabled|encryption_at_rest_enabled)\s*=\s*false"
+        ),
+        "Encrypt at rest (D9). This is a one-word change now and a migration later — "
+        "and it covers backups, snapshots, and replicas too.",
+    ),
+    # --- P11: data stores are never internet-reachable -------------------------------------
+    # One rule, three clouds, three spellings. AWS `publicly_accessible`, GCP Cloud SQL
+    # `ipv4_enabled` (public IP), Azure `public_network_access_enabled`.
+    (
+        "P11",
+        "publicly accessible managed database (AWS)",
+        re.compile(r"publicly_accessible\s*=\s*true"),
+        "Private subnet, reached through the VPC. Unauthenticated internet-exposed data stores "
+        "are found by internet-wide scanning within hours.",
     ),
     (
-        "P8",
-        "publicly accessible database",
-        re.compile(r"publicly_accessible\s*=\s*true"),
-        "Put it in a private subnet and reach it through the VPC.",
+        "P11",
+        "public IP on a managed database (GCP Cloud SQL)",
+        re.compile(r"ipv4_enabled\s*=\s*true"),
+        "Use private IP + the Cloud SQL Auth Proxy or a private service connection. "
+        "Enforce it org-wide with the sql.restrictPublicIp org policy so it cannot come back.",
+    ),
+    (
+        "P11",
+        "public network access enabled (Azure)",
+        re.compile(r"public_network_access_enabled\s*=\s*true"),
+        "Use a private endpoint and disable public network access. Deny it by Azure Policy so it "
+        "cannot be re-enabled by accident.",
+    ),
+    (
+        "P11",
+        "default or weak database credential",
+        re.compile(
+            r"(administrator_login_password|master_password|password)\s*=\s*"
+            r"[\"'](postgres|admin|root|password|changeme|neo4j|guest|test)[\"']",
+            re.I,
+        ),
+        "The shipped default credential must be gone before the store accepts a connection. "
+        "Use IAM/Entra database authentication, or a generated secret from the secret manager.",
     ),
     (
         "R3",

@@ -98,6 +98,38 @@ One fact drives the whole section: **prebuilt images ship one extension family e
   upgrades need `ALTER EXTENSION … UPDATE`) — pin, and treat bumps as `/skill-update`-style
   deliberate changes.
 
+## The AI/ML service catalogue — what else runs locally in Compose
+
+The services an AI platform wants at dev time, beyond the three above. Each is a container; the
+hardening rules from `containers` apply (non-root, digest-pinned, no secrets in the image), and
+**every one of these defaults to no authentication when bound to localhost** — which is fine on a
+laptop and is exactly the `platform-security.md` `P11` violation if the port ever reaches a network.
+
+| Service | For | Shape to expect |
+|---|---|---|
+| **vLLM** | Local LLM inference with continuous batching | GPU required; `--gpus all`; large image; model download on first run. See `serving` |
+| **Ollama** | The easiest local model runner | CPU or GPU; pulls quantized models; good for prototyping, not a serving story |
+| **Triton** | Multi-framework inference, ensembles | GPU; heavier setup; earns itself with mixed model types |
+| **Qdrant** | Vector store (`vector-stores`) | CPU; persist the volume or lose the index; **auth off by default** |
+| **Neo4j** | Graph store (`graph-stores`) | Ships with `neo4j/neo4j` default credentials — change them |
+| **MLflow server** | Tracking (`tracking-mlflow`) | Needs a DB backend (Postgres) + artifact store (MinIO) — that's the trio |
+| **Langfuse / Phoenix** | LLM tracing and eval UI | Pairs with `observability`; needs Postgres |
+| **Ray** | Distributed compute, batch inference | The head node's dashboard is unauthenticated by default |
+| **Airflow / Dagster** | Orchestration (`workflow-orchestration`) | Needs Postgres + a broker; the heaviest thing here |
+| **Redis** | Cache/queue (`caching-and-queues`) | **Auth off by default** — set `requirepass` even locally |
+
+Two patterns worth keeping:
+
+- **Bind to `127.0.0.1`, not `0.0.0.0`.** `ports: ["127.0.0.1:6333:6333"]` means the service is
+  unreachable from the network even if the laptop is on a café Wi-Fi. This one-line habit is what
+  keeps a local default-credentialed service from becoming a `P11` incident.
+- **GPU services want the whole GPU.** vLLM and Triton will not share gracefully; run one at a time
+  locally, and don't co-schedule them with a training job.
+
+**Local is not a staging environment.** These compose files exist so a developer can work offline;
+the production shape is `kubernetes` + the cloud skills, and the two are deliberately different.
+Don't grow this file into a deployment.
+
 ## Gotchas
 - **Backups are now your job.** The named volume is the database; cloud durability assumptions
   don't apply. `pg_dump` on a schedule (or before risky changes) and `mc mirror` for MinIO —

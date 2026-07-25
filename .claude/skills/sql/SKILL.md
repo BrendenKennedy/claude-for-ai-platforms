@@ -15,6 +15,12 @@ description: >
 
 # sql — the database as a feature engine, not a file server
 
+> **Scope: analytics.** This skill is about answering questions from data at rest — warehouses,
+> query engines, and the discipline that keeps a query honest. **The application's transactional
+> database is `relational-stores`**: schema design, migrations, connection pooling, indexes and
+> query plans, transactions and isolation. Both are SQL; the failure modes have almost nothing in
+> common. Table formats and object storage are `object-and-lakehouse`.
+>
 > On-demand: load this when the project's data lives behind a query engine. The split/leakage
 > canon is still `datasets`; feature hypotheses still land in the feature dictionary (P4); this
 > skill is the *mechanics* of doing that work in SQL without the classic silent failures.
