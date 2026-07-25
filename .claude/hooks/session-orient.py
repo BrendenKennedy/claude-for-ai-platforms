@@ -111,6 +111,62 @@ def main() -> int:
                 lines.extend(fu)
         parts.append("\n".join(lines[:MAX_SESSION_LINES]))
 
+    # Security & reliability posture. A threat model that nobody re-reads decays into fiction, and
+    # an accepted risk past its review date has become permanent by default — both are invisible
+    # unless something surfaces them, which is the same argument that justifies this hook at all.
+    posture: list[str] = []
+
+    tm = read(proc / "threat-model.md")
+    if tm:
+        vm = re.search(
+            r"^\*\*(?:Version|Last reviewed|Updated):\*\*\s*(.+?)\s*$", tm, re.MULTILINE
+        )
+        stamp = vm.group(1).strip() if vm else "undated"
+        gaps = bullets(section(tm, "Gaps"), 3)
+        line = f"_Threat model:_ {stamp}"
+        if "undated" in stamp:
+            line += "  ← no date; treat as unverified"
+        posture.append(line)
+        if gaps:
+            posture.append("_Open threat gaps:_")
+            posture.extend(gaps)
+
+    slo = read(proc / "slo-register.md")
+    if slo:
+        breached = [
+            ln.rstrip()
+            for ln in slo.splitlines()
+            if re.search(r"(?i)\b(breach|exhausted|at risk|burning)\b", ln)
+            and ln.strip().startswith("|")
+        ]
+        if breached:
+            posture.append("_Error budget attention:_")
+            posture.extend(breached[:3])
+
+    # Expired exceptions: a decision log entry whose review date has passed.
+    try:
+        import datetime
+
+        today = datetime.date.today().isoformat()
+        expired = []
+        for log in sorted(
+            (root / ".claude" / "memory" / "policy").glob("*-decision-log.md")
+        ):
+            for ln in read(log).splitlines():
+                dm = re.search(
+                    r"review(?:ed)?(?:\s+by|:)?\s*(\d{4}-\d{2}-\d{2})", ln, re.I
+                )
+                if dm and dm.group(1) < today:
+                    expired.append(f"- {log.stem}: {' '.join(ln.split())[:160]}")
+        if expired:
+            posture.append("_Policy exceptions past their review date:_")
+            posture.extend(expired[:3])
+    except Exception:
+        pass
+
+    if posture:
+        parts.append("**Security & reliability**\n" + "\n".join(posture))
+
     # Roadmap: what's in progress + what's next.
     roadmap = read(root / ".claude" / "memory" / "roadmap.md")
     if roadmap:

@@ -10,6 +10,10 @@ in `.pre-commit-config.yaml` covers the human-commit path).
 Scope: every Edit/Write EXCEPT `.env` itself — that file is gitignored by convention and is exactly
 where a real key belongs. `.env.example` IS scanned: it must ship empty values.
 
+Platform surfaces are in scope too: a Kubernetes Secret manifest, a kubeconfig, a Terraform file, or
+a CI workflow carrying a live credential is the same leak with a different extension. Literal values
+in a `kind: Secret` manifest are additionally caught by `guard-k8s-manifests.py` (P7).
+
 Fail-open on anything unparseable: a guard that bricks the session is worse than a missed write.
 """
 
@@ -34,6 +38,27 @@ SECRET_PATTERNS = [
     ("Stripe live key", re.compile(r"\b[sr]k_live_[A-Za-z0-9]{20,}\b")),
     ("HuggingFace token", re.compile(r"\bhf_[A-Za-z0-9]{34,}\b")),
     ("private key block", re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----")),
+    # Platform-era additions. A signed JWT, embedded kubeconfig credential material, or a cloud
+    # service-account key is a live credential exactly as much as a provider API key is.
+    (
+        "signed JWT / bearer token",
+        re.compile(
+            r"\beyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}"
+        ),
+    ),
+    (
+        "kubeconfig credential material",
+        re.compile(
+            r"^\s*(client-key-data|client-certificate-data|token):\s*\S{20,}", re.M
+        ),
+    ),
+    (
+        "GCP service-account key",
+        re.compile(
+            r"\"type\"\s*:\s*\"service_account\"[\s\S]{0,400}\"private_key\"\s*:"
+        ),
+    ),
+    ("Azure client secret", re.compile(r"\b[A-Za-z0-9~._-]{3}8Q~[A-Za-z0-9~._-]{31,}")),
 ]
 
 

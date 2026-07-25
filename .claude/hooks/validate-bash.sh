@@ -50,6 +50,17 @@ if printf '%s' "$cmd" | grep -Eq '(^|[;&|`([:space:]])(curl|wget)[[:space:]][^;&
   exit 2
 fi
 
+# B4) Shell reads of cluster/cloud credential material — same rule as .env (security.md S3): a
+#     secret echoed into the transcript has leaked. `kubectl get secret -o yaml` prints it in full.
+if printf '%s' "$cmd" | grep -Eq '(^|[;&|`([:space:]])kubectl[[:space:]][^;|&]*get[[:space:]][^;|&]*secret[^;|&]*(-o|--output)[[:space:]]*(=)?[[:space:]]*(yaml|json|jsonpath|go-template)'; then
+  echo "BLOCKED: refusing to print Secret contents into the transcript (security.md S3 - a secret echoed into a stored transcript has leaked). Use 'kubectl get secret <name>' for metadata only, or read the value from the secret manager out of band." >&2
+  exit 2
+fi
+if printf '%s' "$cmd" | grep -Eq '(^|[;&|`([:space:]])(cat|less|more|head|tail|bat|strings|xxd|od|grep|egrep|awk|source)[[:space:]][^;|&]*(kubeconfig|\.kube/config|\.aws/credentials|\.docker/config\.json|id_rsa|id_ed25519|\.pem([^A-Za-z0-9]|$)|\.p12([^A-Za-z0-9]|$))'; then
+  echo "BLOCKED: refusing a shell read of credential material (kubeconfig, cloud credentials, private key). Secrets stay out of the transcript - security.md S3." >&2
+  exit 2
+fi
+
 # ── ASK tier — irreversible-if-wrong operations get a dialog in every permission mode ────────────
 
 # A1) Any recursive rm (root/home already blocked above; this catches project paths, incl. inside
@@ -113,6 +124,41 @@ fi
 if printf '%s' "$cmd" | grep -Eq '(^|[;&|`([:space:]])docker[[:space:]]+(system[[:space:]]+prune|volume[[:space:]]+(rm|prune)|builder[[:space:]]+prune)' \
    || printf '%s' "$cmd" | grep -Eq '(^|[;&|`([:space:]])docker([[:space:]]+|-)compose[[:space:]]+down[[:space:]][^;|&]*(-v([[:space:]]|$)|--volumes)'; then
   ask "This removes Docker volumes/state (a compose volume may hold the tracking DB) - confirm it is disposable."
+fi
+
+# A8) Kubernetes operations that remove workloads or disrupt nodes. `kubectl apply` is NOT gated —
+#     declarative convergence is the normal path (and gitops makes it a git operation anyway);
+#     deletion and node disruption are the irreversible ones.
+if printf '%s' "$cmd" | grep -Eq '(^|[;&|`([:space:]])kubectl[[:space:]]+(delete|drain|cordon|uncordon|taint)([[:space:]]|$)'; then
+  ask "Destructive cluster operation - confirm the namespace and context first (kubectl config current-context). Deleting a namespace takes everything in it, and draining a node evicts live workloads."
+fi
+if printf '%s' "$cmd" | grep -Eq '(^|[;&|`([:space:]])kubectl[[:space:]]+(exec|port-forward|proxy)([[:space:]]|$)'; then
+  ask "Interactive access into a running workload - confirm the target and that this is not production. An exec session bypasses the audit trail your application logs provide."
+fi
+if printf '%s' "$cmd" | grep -Eq '(^|[;&|`([:space:]])helm[[:space:]]+(uninstall|delete|rollback)([[:space:]]|$)'; then
+  ask "Helm uninstall/rollback removes or reverts a release - confirm the release name and namespace."
+fi
+
+# A9) Terraform/OpenTofu state-changing operations. `plan` and `validate` are read-only and allowed.
+if printf '%s' "$cmd" | grep -Eq '(^|[;&|`([:space:]])(terraform|tofu)[[:space:]]+(destroy|apply)([[:space:]]|$)'; then
+  ask "Terraform will change real infrastructure - confirm you have READ the plan (destroys, replacements, IAM widening, 0.0.0.0/0). Apply the reviewed plan file, not a fresh plan."
+fi
+if printf '%s' "$cmd" | grep -Eq '(^|[;&|`([:space:]])(terraform|tofu)[[:space:]]+state[[:space:]]+(rm|mv|push|replace-provider)([[:space:]]|$)'; then
+  ask "Direct state surgery - confirm you have a state backup. A corrupted state file orphans real resources."
+fi
+
+# A10) GitOps + secret-store deletions.
+if printf '%s' "$cmd" | grep -Eq '(^|[;&|`([:space:]])(argocd[[:space:]]+app[[:space:]]+delete|flux[[:space:]]+(delete|uninstall))([[:space:]]|$)'; then
+  ask "Removing a GitOps application stops reconciliation and may prune its resources - confirm."
+fi
+if printf '%s' "$cmd" | grep -Eq '(^|[;&|`([:space:]])vault[[:space:]]+(delete|destroy|kv[[:space:]]+(delete|destroy|metadata[[:space:]]+delete))'; then
+  ask "Deleting from the secret store - confirm nothing still consumes this secret, and that it is rotated rather than merely removed (security.md S4)."
+fi
+
+# A11) Cluster RBAC / IAM widening from the shell — same rule as A6, extended to Kubernetes.
+#      security.md S8: the agent never widens its own permissions.
+if printf '%s' "$cmd" | grep -Eq '(^|[;&|`([:space:]])kubectl[[:space:]]+(create|apply)[[:space:]][^;|&]*(clusterrolebinding|rolebinding|clusterrole)'; then
+  ask "This grants Kubernetes permissions - the agent never widens its own permissions (security.md S8). Confirm with the human who owns the cluster."
 fi
 
 # ─────────────────────────────────────────────────────────────────────────────
