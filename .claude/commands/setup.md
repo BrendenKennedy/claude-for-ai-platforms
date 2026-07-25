@@ -43,14 +43,27 @@ full (real train/eval/resume on synthetic data).
 `feat: bootstrap project skeleton (/bootstrap)`. A skeleton whose smoke didn't pass does not get
 committed — fix or report, don't checkpoint broken.
 
-## 3. `/gate` — the P1 review
+## 3. `/threat-model` — the first pass
+
+Invoke the `threat-model` command. Run it **here**, before the P1 gate and before real building
+starts: a threat model produced now can still change the design cheaply, and one produced at P6 is
+documentation. The security-posture answers from `/intake` (data sensitivity, tenancy, exposure,
+agent autonomy, regulatory) are its inputs, so most of the work is already done.
+
+Expect it to be thin at this stage, and say so rather than padding it — an honest first pass naming
+the trust boundaries and the top gaps is the deliverable. It gets refreshed at P3 when the
+architecture settles, which is when it earns its keep.
+
+**Checkpoint commit:** `docs: initial threat model (/threat-model)`.
+
+## 4. `/gate` — the P1 review
 
 Invoke the `gate` command for P1. The definition doc from step 1 is most of T1's evidence, so this
 should be quick — but run it honestly; open questions recorded during the definition stay
 unchecked and become gate debt, which is fine and correct. Commit the phase-state/memory updates:
 `chore: record P1 gate review (/gate)`.
 
-## 4. Land + `/wrapup` + report
+## 5. Land + `/wrapup` + report
 
 If step 0 used a `setup/scaffold` branch, land it per the captured convention (merge to main
 locally, or push + PR).

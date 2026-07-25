@@ -21,11 +21,30 @@ assent** — a file path, a number, a link, a table row. "Yeah we did that" does
    - No evidence → it stays `[ ]` with one line on exactly what's missing.
    Don't soften: an item that's "mostly done" is unchecked.
 
-3. **Review the risk register.** Read `@.claude/memory/process/risk-register.md`. With the user:
-   are the listed risks still live, are mitigations current, did this phase surface new risks?
-   Update the table.
+3. **Walk the security & reliability track (`PROCESS.md` §3.9).** Every phase gate carries these
+   items alongside the delivery ones, and they take evidence on exactly the same terms — a file, a
+   run id, a date. They are the ones most likely to be waved through, so ask for the artifact:
+   - **Threat model current** (P3 onward) — `.claude/memory/process/threat-model.md` exists, is
+     dated, and its version covers the architecture as it stands now. A threat model predating the
+     current design is unchecked, not checked.
+   - **Controls implemented** (P4) — the canon rules this phase's work touches have a mechanism, not
+     just prose. `/harden` or `compliance-mapper` produces the evidence.
+   - **Adversarial run recorded** (P5) — a `/redteam` run with a date and coverage, per
+     `model-governance.md` `M16`. "We tried some prompts" is not a run.
+   - **SLOs + runbooks + rollback tested** (P6) — `slo-register.md` has targets *with agreed
+     consequences*, and the rollback has actually been exercised (`reliability.md` `R3`).
+   - **Monitoring live and IR path known** (P7).
 
-4. **Verdict — and this is the part that must not bend:**
+   **Expired policy exceptions are gate debt.** Check `.claude/memory/policy/*-decision-log.md` for
+   any exception past its review date — it was accepted as temporary and has become permanent by
+   default, which is precisely the thing a gate exists to catch.
+
+4. **Review the risk register.** Read `@.claude/memory/process/risk-register.md`. With the user:
+   are the listed risks still live, are mitigations current, did this phase surface new risks?
+   Update the table. Threat-model gaps and unfixed red-team findings live here too — they are risks,
+   not a separate ledger.
+
+5. **Verdict — and this is the part that must not bend:**
    - **All items `[x]` or `N/A`-with-reason** → record **PASS** (date + reviewer) in the phase-state
      file's gate history, advance **Current phase** to the next phase, and clear any gate debt for
      the passed phase. **Then cascade to the backlog:** update `@.claude/memory/roadmap.md` in the
@@ -37,7 +56,7 @@ assent** — a file path, a number, a link, a table row. "Yeah we did that" does
      under **Gate debt**. Do **not** advance the phase, and do not offer to "advance anyway" — the
      override path is the user editing the phase-state file themselves, deliberately.
 
-5. **Record decisions.** Any judgment call made during the review (a threshold chosen, a risk
+6. **Record decisions.** Any judgment call made during the review (a threshold chosen, a risk
    accepted, a scope cut) goes through the `governance` skill's decision-log protocol — one line,
    append-only.
 

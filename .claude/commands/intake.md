@@ -21,15 +21,40 @@ definition only on a genuine pivot, which also means a decision-log entry.)
 - **Open question.** "What are we building?" in plain conversation — not AskUserQuestion. Let the
   user talk; follow up until you can state in your own words what is produced, for whom, and what
   decision it changes. Reflect it back and get a "yes, that's it."
-- **Classify the archetype** (AskUserQuestion once you have context): computer vision · classical
-  DS on structured/tabular data · time-series/forecasting · NLP / LLM application · AI agent build ·
-  autonomous systems/robotics · analytics & reporting. **Be honest about lane fit, out loud:** the
-  chassis, the DS-core workflow skills, and the PROCESS.md phases are archetype-agnostic, and the
-  CV / tabular / time-series / LLM archetypes have full lanes plus `/bootstrap` skeletons. Out of
-  lane (agent builds, autonomous systems, pure analytics): the chassis still holds — an agent build
-  still has data discovery, baselines, and eval — but no lane skills or skeleton back it. State
-  exactly what fits and what doesn't, and ask whether to proceed with the gaps recorded — never
-  silently pretend covered.
+- **Classify the archetype** (AskUserQuestion once you have context). This fork's lanes, in two
+  families:
+  - **Platform lanes** (the primary ones here): **agent platform** (an agentic system with tools and
+    memory) · **RAG service** · **inference platform** (serving models at scale) · **eval harness**
+    (measuring models/agents) · **MLOps/data platform** (the pipeline substrate).
+  - **Model-building lanes** (inherited, still fully supported): computer vision · classical DS on
+    structured/tabular data · time-series/forecasting · LLM fine-tuning.
+  - Also possible: analytics & reporting · autonomous systems/robotics.
+
+  **Be honest about lane fit, out loud.** The chassis, the DS-core workflow skills, the security
+  canon, and the `PROCESS.md` phases are archetype-agnostic. Platform lanes get the platform skills
+  plus `/bootstrap` deploy/policy/observability/eval skeletons; the model-building lanes get their
+  existing skills and skeletons. Out of lane (autonomous systems, pure analytics): the chassis still
+  holds — there is still data discovery, a baseline, and eval — but no lane skills or skeleton back
+  it. State exactly what fits and what doesn't, and ask whether to proceed with the gaps recorded —
+  never silently pretend covered.
+- **Run the security-posture interview** (AskUserQuestion, batched). These answers set the
+  enforcement tier, seed the threat model, and decide several `skillOverrides` — they are not
+  paperwork:
+  - **Data sensitivity** — public / internal / confidential / regulated (PII, PHI, financial).
+  - **Tenancy** — single-tenant / multi-tenant. Multi-tenant makes `platform-security.md` `P10` and
+    `identity-and-access.md` `I4` load-bearing rather than theoretical.
+  - **Exposure** — internal-only / authenticated external / public internet.
+  - **Agent autonomy** — read-only / writes to scoped systems / takes irreversible actions. Anything
+    past read-only makes `ai-security.md` `AI2`/`AI3` and `agent-authority.md` mandatory.
+  - **Human-in-the-loop** — which action classes require an approving human.
+  - **Regulatory exposure** — does this touch an EU AI Act Annex III use case (employment,
+    education, essential services, law enforcement, biometrics, critical infrastructure), or ship a
+    GPAI model? **A "yes" or "unsure" is recorded in the risk register at P1 and needs qualified
+    counsel** — classification is a legal determination this scaffold cannot make, and finding out
+    at P6 is the expensive path. See `policy/frameworks/eu-ai-act.md`.
+
+  Record the answers in the definition doc under **Security posture**; `/threat-model` starts from
+  them.
 - **Fill T1 conversationally:** prediction target · consumer & the decision it changes ·
   constraints (deadline, data access, budget, and the **compute math** — est. cost of one training
   run × runs implied, vs. hardware and deadline) · success metric + threshold + the baseline it
@@ -98,6 +123,33 @@ present those as the pre-selected option and confirm, don't re-ask blind:
 - **HPO** — Hydra multirun grids only *(default)* / Optuna (continuous spaces, pruning, resumable
   search). Flips `hpo-optuna`.
 
+**Platform stack** — ask these for any platform-lane archetype; skip for a pure model-building lane
+(and say you're skipping them, so the user can override):
+
+- **Orchestration** — Kubernetes *(default for platform lanes)* / Docker Compose only / serverless /
+  none yet. Flips `kubernetes` and `policy-as-code`.
+- **Cloud** — AWS / GCP / Azure / on-prem / none. Only `infra-aws` exists as a lane today; for the
+  others, say so plainly rather than implying coverage.
+- **Infrastructure as code** — Terraform/OpenTofu *(default when there's a cloud)* / cloud console /
+  none. Flips `iac-terraform`.
+- **Delivery** — GitOps with Argo CD or Flux *(default with Kubernetes)* / CI pushes with `kubectl` /
+  manual. Flips `gitops`. Note that the GitOps default exists for a security reason: it means CI
+  never holds cluster credentials.
+- **Identity provider** — which IdP for human access, and whether workload identity is available
+  (IRSA / GKE Workload Identity / SPIFFE). Flips `authn-authz`.
+- **Secrets backend** — External Secrets Operator / Vault / cloud secret manager / SOPS / `.env`
+  only. Flips `secrets-management`. If the answer is `.env` only *and* the project deploys, say that
+  `.env` is a development convenience and `platform-security.md` `P7` will bite at deploy time.
+- **Observability stack** — OpenTelemetry + Prometheus/Grafana *(default)* / a vendor / none yet.
+  `observability` is always-on; this fills the collector endpoint in `.env.example`.
+- **Model providers** — which third-party model APIs, if any. Records the egress destinations
+  (`security.md` `S7`) and the pinning obligation (`model-governance.md` `M14`).
+- **Agent tooling** — will this project connect MCP servers or third-party agent tools? Flips
+  `mcp-security`.
+- **Adversarial testing** — will there be a red-team suite? *(default yes for any agent platform,
+  since `model-governance.md` `M16` makes a recorded run part of release evidence.)* Flips
+  `llm-red-teaming`.
+
 Capture the answers before touching any file.
 
 ## 2. Write `settings.json` `skillOverrides`
@@ -128,6 +180,26 @@ Edit `.claude/settings.json` — set each key to `"on"` or `"off"` from the answ
 | `infra-aws` | cloud = AWS (from the definition doc) — remind the user the IAM starter policy (`.claude/templates/aws-iam-policy.json`) needs *their* review + attachment |
 | `containers` | the project builds images (training/serving) or runs local support services via Compose |
 | `local-stack` | services must run self-hosted/offline — local annotation (CVAT), S3-compatible blob store (MinIO), local Postgres (+extensions). Flips `containers` with it (Compose underpins it) |
+| `kubernetes` | orchestration = Kubernetes. Flips `containers` with it |
+| `policy-as-code` | orchestration = Kubernetes AND the cluster is one we configure (not a managed sandbox) — admission control is where the platform rules become enforceable |
+| `authn-authz` | the project authenticates anyone or anything: a user-facing endpoint, service-to-service calls, or an agent acting for a user. **On by default for every platform lane** |
+| `secrets-management` | a secrets backend was chosen, or any workload needs a credential at runtime |
+| `supply-chain-security` | the project builds and ships an artifact (image, model, package). **On by default for every platform lane** |
+| `secure-cicd` | the project has a CI pipeline. **On by default** — CI is the most over-privileged identity in most systems |
+| `iac-terraform` | IaC = Terraform/OpenTofu |
+| `gitops` | delivery = Argo CD / Flux |
+| `guardrails` | the project runs a model in front of users — input/output filtering, structured-output validation, PII redaction. **On by default for agent-platform and RAG lanes** |
+| `mcp-security` | the project connects MCP servers or third-party agent tools. **On by default for the agent-platform lane** |
+| `llm-red-teaming` | there will be an adversarial suite — on by default for any agent platform (`M16`) |
+
+**Platform-lane defaults**, unless the interview says otherwise: `kubernetes`, `authn-authz`,
+`supply-chain-security`, `secure-cicd`, `guardrails`, `mcp-security`, `containers`, `serving` on;
+`policy-as-code`, `secrets-management`, `iac-terraform`, `gitops`, `llm-red-teaming` on when their
+question said yes. The model-building lanes keep their existing defaults and these stay off.
+
+**Budget note:** this fork raises `skillListingBudgetFraction` to `0.04` because more skills are on
+by default. If a project genuinely doesn't need a lane, turning it **off** is free context — say so
+in the report rather than leaving everything on "just in case."
 
 Exactly one tracker key and one config key should be `on`; the unchosen siblings go `off`. If the tracker
 or data-versioning answer is "none", leave all keys in that group `off`. **Lane skills flip from the
@@ -155,6 +227,25 @@ interview now answers; leave the rest for the user. The answer-determined ones:
   the user named a project; otherwise leave and flag it. Skip entirely if the tracker isn't W&B.
 - **DVC remote URL** — `.claude/skills/data-dvc/SKILL.md` (`dvc remote add -d storage ...`). Fill with the
   user's remote if given; else flag. Skip if data versioning isn't DVC.
+- **Policy canon org values** — the security-posture and platform-stack answers fill these directly.
+  Fill what the interview answered; leave the rest as explicit open questions in the report:
+  - `.claude/memory/policy/security.md` — org secret manager; approved egress destinations + approver.
+  - `.claude/memory/policy/ai-security.md` — the org's agent **autonomy tiers** (which action classes
+    may run unattended, and who approves a promotion between them). From the autonomy + HITL answers.
+  - `.claude/memory/policy/platform-security.md` — approved container registries + who approves a new
+    one; the cluster's tenancy model and which sensitivity classes may share a node pool.
+  - `.claude/memory/policy/identity-and-access.md` — the IdP and the groups/claims that map to
+    administrative access; the secrets backend and how workload credentials are issued; rotation
+    intervals per credential class and their owners.
+  - `.claude/memory/policy/supply-chain.md` — approved package registries and model hubs + approver;
+    the artifact/attestation store; the CVE severity threshold that blocks a release.
+  - `.claude/memory/policy/reliability.md` — SLO targets and windows per service + who agrees them;
+    severity definitions, on-call rotation, escalation path; the severity above which a written
+    postmortem is required.
+
+  These are the placeholders most likely to be left blank, and they are the ones that make canon
+  enforceable rather than aspirational. **An unfilled one is reported, never invented** — guessing a
+  rotation interval or an approver is worse than an honest blank.
 - **ARM torch index** — `.claude/skills/env-uv/SKILL.md` (`<PLACEHOLDER: ARM torch index for your box>`).
   Fill **only if** the box is aarch64/ARM; on x86 leave the surrounding note as-is and note it's N/A.
 - **Dataset path placeholders** — e.g. `data/<PLACEHOLDER: dataset dir>` / `<PLACEHOLDER: dataset_name>`

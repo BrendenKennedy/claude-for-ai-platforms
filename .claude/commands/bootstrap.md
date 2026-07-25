@@ -258,6 +258,48 @@ src/<pkg>/
 golden/prompts.jsonl       # the golden set — versioned with the data (data-dvc)
 ```
 
+### 3h. Platform archetypes — the deployable surface IS the skeleton
+
+For **agent platform · RAG service · inference platform · eval harness · MLOps platform**, the
+`train.py`/`eval.py` shape above is the wrong skeleton. What this lane needs proven on day one is
+that a hardened workload deploys, a policy rejects a bad one, telemetry arrives, and an eval gate
+runs. Generate:
+
+```
+deploy/
+  base/          namespace.yaml (PSS restricted labels) · deployment.yaml · service.yaml
+                 networkpolicy-default-deny.yaml · rbac.yaml · kustomization.yaml
+  overlays/dev/  kustomization.yaml (image digest, replicas: 1)
+  overlays/prod/ kustomization.yaml (image digest, replicas, PDB, resource bumps)
+policies/        kyverno/ or rego/ — the baseline set + a fixture that MUST fail and one that MUST pass
+observability/   otel-collector.yaml (with the redaction processor wired) · dashboards/
+evals/           harness + cases/ (capability) + safety/ (red-team regression, gated absolutely)
+.github/workflows/security.yml
+src/<pkg>/       the service itself; agents/ + tools/ if the lane is agent-shaped
+```
+
+Instantiate from `.claude/templates/k8s/`, `templates/policies/`, `templates/security-ci.yml`, and
+`templates/otel-collector.yaml` — **do not hand-write the manifests.** The templates already satisfy
+`platform-security.md` `P1`–`P10`; anything you write from scratch will be blocked by
+`guard-k8s-manifests.py`, which is the system working, not an obstacle.
+
+Load the skills that own each piece before generating: `kubernetes` (workload shape),
+`policy-as-code` (the policy set), `observability` (what to emit), `secure-cicd` (the gate ladder),
+`agent-evaluation` (the eval harness), and — for agent-shaped lanes — `agent-security` for the tool
+boundary.
+
+**Two files this lane must also create**, because they are the ones nothing else will:
+- `.claude/memory/process/agent-authority.md` (T13) — the declared tool surface per agent. Seed it
+  from the tools you generate; `guard-agent-config.py` checks edits against it.
+- `.claude/memory/process/slo-register.md` (T10) — seeded empty with the service named, so `/slo`
+  has somewhere to write.
+
+**Prove it (§5 applies, adapted):** `kubectl kustomize deploy/overlays/dev` renders; `conftest test
+-p policies/ -` passes against the rendered output **and** `conftest verify -p policies/` shows the
+bad fixture is actually rejected; the eval harness runs on its example case; `python3
+.claude/scripts/check-hooks.py` passes. A skeleton whose policy fixture doesn't fail is a policy
+that isn't enforcing anything — that is the check people skip.
+
 ## 4. Never clobber (but *do* extend)
 
 Before **creating** a file: if it already exists and is non-empty, **stop and ask** — do not overwrite. This
