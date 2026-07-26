@@ -52,16 +52,23 @@ On-demand expertise. Loaded only when the `description` matches, so it can be lo
 > `<Domain/contract in one clause> — <what it carries: the 3–5 specifics an agent can't guess>. Load when <the tasks it covers>. Triggers: <phrases the user will actually type, sharpest first>. <Optional one-clause scope boundary — what belongs to a sibling skill>.`
 
 **Three tiers — decide which before writing:**
-- **Always-on** (chassis + workflow) — process skills and archetype-agnostic DS domain skills. Not
-  listed in `skillOverrides`; always active. Add a row to the right CLAUDE.md list.
+- **Always-on** — the **chassis only**: `process`, `governance`, `testing`, `memory`,
+  `wave-planning`. Five skills, both families, every project. Not listed in `skillOverrides`.
+  This tier is closed in practice: v1.4.0 gated *both* wings — the security/platform spine and the
+  DS core — so that neither family pays context for the other's. Adding here means every user of
+  every profile pays for your description on every turn, so the bar is "no project can proceed
+  without this." Add a row inside the `<!-- always-on -->` markers in CLAUDE.md **and** README.md;
+  `check-scaffold.sh` check 1b compares both against `settings.json`.
 - **Tool-gated** — one tool per skill (a tracker, a config lib, …). Add a `skillOverrides` entry in
   `settings.json` (`"<name>": "on"|"off"`) and let `/intake` flip it. This is how MLflow⇄W&B or
-  Hydra⇄OmegaConf swap without touching the always-on skills that reference them. Carries a
-  `**Pinned:**` version line (see the tool-skill rule below).
+  Hydra⇄OmegaConf swap without touching the skills that reference them. Carries a `**Pinned:**`
+  version line (see the tool-skill rule below). These are the ones an agent must never preload —
+  one of a swappable pair is the wrong one half the time.
 - **Lane-gated** — a whole workflow lane flipped by project *archetype* (tabular, timeseries, LLM,
-  sql, serving, …): same `skillOverrides` mechanism, but `/intake` flips it from the step-0
-  definition doc rather than a stack question. Off = zero context cost — a CV user never pays for
-  the tabular lane; gated descriptions may run longer than always-on ones.
+  kubernetes, serving, …): same `skillOverrides` mechanism, but `/intake` flips it from the step-0
+  definition doc rather than a stack question. Off = zero context cost — a tabular-regression
+  project never pays for the agentic threat surface, and an inference platform never pays for `eda`
+  and `notebooks`; gated descriptions may run longer than always-on ones.
 
 **Body shape:** `When this applies` (mirrors the triggers) → `The facts` (commands, versions, contracts,
 exact configs — the specifics an agent can't guess) → `How to do X` → `Gotchas`. Tables and code blocks

@@ -10,14 +10,16 @@ agent" and "no project-manager agent", generalized.)
 costs: the **description** (~250 tokens) is always in context — it's the routing table; the
 **body** (~1.5–2k tokens) loads only when the skill triggers. A session carries a ~4–5k-token
 *router*, not a 50k-token library. Gating (tool/lane `skillOverrides`) prunes the router
-per-project: a CV project never lists `tabular`.
+per-project: an inference platform never lists `eda`, and a tabular-regression project never lists
+the agentic threat surface.
 
 ## What a manager/orchestrator architecture would cost
 Every delegation to a subagent pays, per hop:
 - **Re-serialized context.** Subagents cannot see the conversation — everything relevant must be
-  restated in the delegation prompt. This is the quality killer: DS work is iterative and
-  conversational, and the surrounding context (what was just tried, what the user said about the
-  data) is most of the signal.
+  restated in the delegation prompt. This is the quality killer: the work in both families is
+  iterative and conversational, and the surrounding context is most of the signal — what was just
+  tried, what the user said about the data, which manifest was just rejected and why the threat
+  model rules out the obvious fix.
 - **The agent's fixed overhead** — system prompt + preloaded skill bodies + CLAUDE.md — usually
   *more* tokens than the router costs, paid again on every hop.
 - **The user cut out of the loop.** Subagents can't ask the user anything. Gates, scope calls,
