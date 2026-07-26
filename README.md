@@ -145,7 +145,11 @@ SOC 2, and the EU AI Act **for orientation**, and asserts conformance to none of
 actually implemented, with evidence, lives in `control-coverage.md` — and "not evidenced" is an
 expected status there, because an overclaimed control is worse than a missing one.
 
-Full threat model: [`.claude/memory/policy/security.md`](.claude/memory/policy/security.md).
+The dev-loop security canon — secrets, egress, the agent's own identity — is
+[`.claude/memory/policy/security.md`](.claude/memory/policy/security.md) (`S1`–`S9`). Your project's
+own **threat model** — trust boundaries, STRIDE + OWASP ASI/LLM + MITRE ATLAS, every threat driven to
+a control or an accepted risk — is `.claude/memory/process/threat-model.md`, produced and refreshed
+by `/threat-model`.
 
 ## Reference
 
@@ -237,9 +241,12 @@ input either blocks everything or nothing.
 ## Verifying the scaffold itself
 
 ```bash
-bash .claude/scripts/check-scaffold.sh    # drift, frontmatter, config, install, placeholders, docs
+bash .claude/scripts/check-scaffold.sh    # the scaffold's self-consistency checks
 python3 .claude/scripts/check-hooks.py    # every guard: blocks, allows, fails open
 ```
+
+Each script's header comment lists exactly what it checks — that list is the canonical one, so it
+can't drift from the code the way a copy in this README would.
 
 CI runs both. `check-scaffold.sh` fails if a skill exists on disk but isn't named in `CLAUDE.md` and
 this README, **if a skill is listed in the wrong tier here**, if a canon file isn't registered in the

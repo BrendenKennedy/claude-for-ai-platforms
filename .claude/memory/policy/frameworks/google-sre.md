@@ -76,7 +76,7 @@ rather than copying:
 | Graceful degradation | `R5` | `reliability-sre` · `guardrails` (fallback paths) |
 | Runbook per alert | `R6` | `templates/runbook.md` · `observability` |
 | Incident command | `R7` | `reliability-sre` · `sre-analyst` agent |
-| Blameless postmortem | `R8` | `/postmortem` · `templates/postmortem.md` · `memory/incidents/` |
+| Blameless postmortem | `R8` | `/postmortem` · `memory/incidents/_template.md` · `memory/incidents/` |
 
 ## Gotcha
 

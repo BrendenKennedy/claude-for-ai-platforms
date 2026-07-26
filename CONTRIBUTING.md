@@ -9,22 +9,24 @@ Read **`.claude/memory/reference/authoring-extensions.md`** — it is the author
 four extension types (skills, agents, commands, hooks): file locations, frontmatter contracts,
 and the conventions that bite. The short version of the rules that reject PRs:
 
-- **Earn the surface.** Every always-on skill's description is paid for in every session by every
-  user. New knowledge must either fit an existing skill, gate behind a tool/lane override, or
-  displace something weaker. "Might be useful" is the parking lot (`roadmap.md`), not a merge.
+- **Earn the surface.** Every skill active in a profile pays for its description on every turn of
+  every session in that profile — the always-on chassis in all of them, a gated skill in each
+  profile that flips it on. New knowledge must either fit an existing skill, gate behind a
+  tool/lane override, or displace something weaker. "Might be useful" is the parking lot
+  (`roadmap.md`), not a merge.
 - **Descriptions are front-loaded and budgeted.** ≤ ~1,000 chars, use case first, triggers
   sharpest-first — the listing truncates tails and the budget is shared
   (see the description rules in the authoring doc).
 - **Tool skills carry a `**Pinned:**` line** and document commands that actually run on that
   version. `/skill-update` owns pin bumps; claims you didn't execute don't ship.
-- **Agents preload only always-on skills** (`skills:` frontmatter), never tool-gated ones;
-  least-privilege `tools:`; output goes to the caller, not the user.
+- **Agents preload only skills that are `"on"` in `skillOverrides`** (`skills:` frontmatter), never
+  tool-gated ones; least-privilege `tools:`; output goes to the caller, not the user.
 - **Register everything** in CLAUDE.md (and the README tree) — `check-scaffold.sh` enforces this.
 
 ## The PR checklist
 
-1. `bash .claude/scripts/check-scaffold.sh` passes (drift, frontmatter, config, install,
-   ownership).
+1. `bash .claude/scripts/check-scaffold.sh` and `python3 .claude/scripts/check-hooks.py` pass
+   (the script headers list what each one checks; CI runs both).
 2. New/changed skill descriptions are within budget (the check above warns; the authoring doc
    has the numbers).
 3. A `CHANGELOG.md` entry under an `Unreleased`/next-version heading, in the existing style.

@@ -310,6 +310,7 @@ run(
     "allow",
     "env-sourced key",
 )
+run("guard-secrets.py", "not json at all", "allow", "FAIL-OPEN malformed stdin")
 
 print("\n== scan-untrusted-content ==")
 
@@ -422,6 +423,7 @@ run(
 )
 run("validate-bash.sh", bash("argocd app delete api"), "ask", "argocd app delete")
 run("validate-bash.sh", bash("ls -la"), "allow", "innocuous command")
+run("validate-bash.sh", "{{{bad", "allow", "FAIL-OPEN malformed stdin")
 
 print("\n== Stop hooks (loop guard) ==")
 run("run-security-tests.sh", {"stop_hook_active": True}, "allow", "loop guard honoured")

@@ -26,8 +26,8 @@ follows `policy/frameworks/cis-kubernetes.md` (v2.0.1 → k8s 1.34/1.35).
 > *policy enforcement* is `policy-as-code`; image building is `containers`; secret backends are
 > `secrets-management`; delivery is `gitops`; SLOs are `reliability-sre`.
 >
-> **Note on lineage:** the parent scaffold deliberately parked Kubernetes. This fork un-parks it —
-> see `memory/process/decision-log.md`.
+> **Note on lineage:** this scaffold deliberately parked Kubernetes through v0.9.0; v1.0.0 un-parked
+> it — see `memory/process/decision-log.md`.
 
 ## When this applies
 

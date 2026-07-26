@@ -4,6 +4,7 @@ agent, and hook — from the frontmatter itself, so it cannot drift from the ter
 check-scaffold regenerates and diffs it; edit frontmatter, never the output file.
 Usage: python3 .claude/scripts/build-reference.py [output-path]"""
 
+import ast
 import json
 import re
 import sys
@@ -15,7 +16,10 @@ except ImportError:
     yaml = None
 
 ROOT = Path(__file__).resolve().parents[2]
-CHASSIS = {"process", "governance", "testing", "memory", "wave-planning"}
+# The chassis is DERIVED, not listed: a skill absent from skillOverrides is always-on. Same source
+# of truth check-scaffold's tier check uses, so the two agree by construction rather than by luck.
+# TOOLS stays hand-listed — the tool/lane split has no on-disk signal (**Pinned:** isn't one; 30
+# skills carry it, including lane skills like kubernetes).
 TOOLS = {
     "env-uv",
     "tracking-mlflow",
@@ -53,12 +57,39 @@ def one_liner(desc: str, limit: int = 170) -> str:
     return s
 
 
-def hook_line(path: Path) -> str:
-    for line in path.read_text().splitlines()[1:6]:
-        line = line.strip()
-        if line.startswith("#") and len(line) > 4:
-            return line.lstrip("# ").split(" — ", 1)[-1]
-    return ""
+def cell(value: object) -> str:
+    """Collapse whitespace and escape `|` so a value can't break out of its table column.
+    The hook Event column carries matchers like `Edit|Write`, which silently added a fourth
+    cell to a three-column table until this existed."""
+    return " ".join(str(value or "").split()).replace("|", "\\|")
+
+
+# `<Event>(<matcher>) hook|guard — <summary>` prefix; the table's Event column already says it.
+HOOK_PREFIX = re.compile(
+    r"^\s*[A-Za-z]+(?:\([^)]*\))?\s+(?:hook|guard)\s*[:—-]\s*", re.IGNORECASE
+)
+
+
+def hook_line(path: Path, limit: int = 170) -> str:
+    """One-line summary from the hook's own header — a module docstring (.py) or the first
+    comment line after the shebang (.sh). Reading only `#` comments missed every Python hook,
+    which is how ten of thirteen rows shipped blank."""
+    text = path.read_text()
+    if path.suffix == ".py":
+        try:
+            doc = ast.get_docstring(ast.parse(text)) or ""
+        except SyntaxError:
+            doc = ""
+        first = doc.strip().split("\n", 1)[0]
+    else:
+        first = ""
+        for line in text.splitlines()[1:]:
+            s = line.strip()
+            if s.startswith("#") and len(s) > 2:
+                first = s.lstrip("#").strip()
+            break
+    first = HOOK_PREFIX.sub("", first)
+    return " ".join(first.split())[:limit]
 
 
 def main() -> None:
@@ -75,6 +106,10 @@ def main() -> None:
             continue
         skills[name] = one_liner(str(frontmatter(p).get("description", "")))
 
+    # A skill absent from skillOverrides is always-on. Derived rather than hardcoded so a new
+    # chassis skill can't silently vanish from this file.
+    chassis = set(skills) - set(overrides)
+
     lines = [
         "# Reference — every skill, command, agent, and hook",
         "",
@@ -87,20 +122,8 @@ def main() -> None:
         "| Skill | What it carries |",
         "|---|---|",
     ]
-    for n in sorted(skills):
-        if n in CHASSIS:
-            lines.append(f"| [`{n}`](../.claude/skills/{n}/SKILL.md) | {skills[n]} |")
-
-    lines += [
-        "",
-        "## Skills — workflow (always on)",
-        "",
-        "| Skill | What it carries |",
-        "|---|---|",
-    ]
-    for n in sorted(skills):
-        if n not in CHASSIS and n not in overrides:
-            lines.append(f"| [`{n}`](../.claude/skills/{n}/SKILL.md) | {skills[n]} |")
+    for n in sorted(chassis):
+        lines.append(f"| [`{n}`](../.claude/skills/{n}/SKILL.md) | {cell(skills[n])} |")
 
     lines += [
         "",
@@ -114,7 +137,7 @@ def main() -> None:
             continue
         kind = "tool" if n in TOOLS else "lane"
         lines.append(
-            f"| [`{n}`](../.claude/skills/{n}/SKILL.md) | {kind} | {overrides[n]} | {skills[n]} |"
+            f"| [`{n}`](../.claude/skills/{n}/SKILL.md) | {kind} | {cell(overrides[n])} | {cell(skills[n])} |"
         )
 
     lines += ["", "## Commands", "", "| Command | Does |", "|---|---|"]
@@ -123,7 +146,7 @@ def main() -> None:
         if name == "_TEMPLATE":
             continue
         lines.append(
-            f"| [`/{name}`](../.claude/commands/{name}.md) | {one_liner(str(frontmatter(p).get('description', '')))} |"
+            f"| [`/{name}`](../.claude/commands/{name}.md) | {cell(one_liner(str(frontmatter(p).get('description', ''))))} |"
         )
 
     lines += [
@@ -139,8 +162,8 @@ def main() -> None:
             continue
         fm = frontmatter(p)
         lines.append(
-            f"| [`{name}`](../.claude/agents/{name}.md) | {one_liner(str(fm.get('description', '')))} "
-            f"| {fm.get('tools', '')} | {fm.get('skills', '—')} |"
+            f"| [`{name}`](../.claude/agents/{name}.md) | {cell(one_liner(str(fm.get('description', ''))))} "
+            f"| {cell(fm.get('tools', ''))} | {cell(fm.get('skills', '—'))} |"
         )
 
     lines += [
@@ -160,7 +183,7 @@ def main() -> None:
                 wiring.append((name, ev))
     for name, ev in sorted(wiring):
         lines.append(
-            f"| [`{name}`](../.claude/hooks/{name}) | {ev} | {hook_line(ROOT / '.claude/hooks' / name)} |"
+            f"| [`{name}`](../.claude/hooks/{name}) | {cell(ev)} | {cell(hook_line(ROOT / '.claude/hooks' / name))} |"
         )
 
     lines += [

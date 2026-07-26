@@ -5,7 +5,7 @@ description: >
   trigger phrases the user might say. Lead with the capability, then "Use when…", then "Triggers:
   …".>
 tools: Read, Grep, Glob   # least-privilege: list only what this agent needs. Omit to inherit all. Add Bash/Write/Edit only if required.
-# skills: datasets        # optional: ALWAYS-ON skills whose full content preloads at startup. Only the 1-2 this agent's non-negotiables depend on — it costs context. NEVER preload tool-gated skills (they may be off; the agent checks skillOverrides and Reads the active one's file instead).
+# skills: datasets        # optional: preloads full skill bodies at startup (subagents have no Skill tool). Only the 1-3 this agent's non-negotiables need — paid on every dispatch. NEVER a tool-gated skill (one of a swappable pair; the agent checks skillOverrides and Reads the active one instead); a lane-gated skill only while it is "on".
 # model: sonnet           # optional: pin a model tier for this agent
 ---
 

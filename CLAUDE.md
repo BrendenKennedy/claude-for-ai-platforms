@@ -151,7 +151,8 @@ All fail open; every one has block/allow/**fail-open** cases in `.claude/scripts
 On-demand store, never auto-loaded; read/write process is the `memory` skill.
 `sessions/` (dated summaries) · `incidents/` (postmortems, T11) · `reference/` (how-we-do-X notes,
 incl. `authoring-extensions.md` — read it before extending `.claude/` — plus
-`architecture-skills-vs-agents.md` and `architecture-security-layers.md`) · `roadmap.md` (backlog;
+`architecture-skills-vs-agents.md`, `architecture-security-layers.md`, and
+`remote-gpu-workflow.md`) · `roadmap.md` (backlog;
 doubles as the scope parking lot) · `scaffold-journal.md` (observed quality of the scaffold itself;
 harvested by `/scaffold-retro`) ·
 **`policy/`** (governance canon, 8 domains with citable rule ids: `security.md` `S#` (the dev loop) ·

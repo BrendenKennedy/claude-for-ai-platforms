@@ -30,8 +30,9 @@ per handoff and loses context at each one.
 ## Where subagents DO win (and how this repo uses them)
 Context **isolation**, not context savings, is the real product:
 - Read-heavy investigation that would flood the main window → `Explore` / `general-purpose`.
-- Separable build chunks → `data-engineer` / `ml-engineer`, with their load-bearing always-on
-  skills **preloaded** via `skills:` frontmatter (subagents have no Skill tool).
+- Separable build chunks → `data-engineer` / `ml-engineer`. Where an agent's non-negotiables depend
+  on a specific skill, that skill's body is **preloaded** via `skills:` frontmatter
+  (`data-engineer` → `datasets`), because subagents have no Skill tool.
 - Fresh-eyes verification → `code-reviewer` (bias isolation: the reviewer didn't write it).
 - Parallel fan-out over file-disjoint tasks → `wave-planning` manifest.
 - Research pollution → `/skill-update` delegates bulk changelog reading.
@@ -43,8 +44,10 @@ manager; adding another one adds a lossy hop, not leverage.
 
 ## Pressure valves, in order (when the router grows too big)
 1. Gate more skills (tool/lane `skillOverrides` off) — free for anyone not in that lane.
-2. `skillListingBudgetFraction` in `settings.json` (set to 0.02 here) — buy explicit headroom
-   instead of letting the default ~1% budget silently drop least-used descriptions.
+2. `skillListingBudgetFraction` in `settings.json` — buy explicit headroom instead of letting the
+   default ~1% budget silently drop least-used descriptions. The current value and the reasoning
+   behind it live in that file's `_skillListingBudget_comment`; this list is the ladder, not the
+   setting.
 3. `"name-only"` in `skillOverrides` for rarely-triggered skills — listed, but description-free.
 4. Tighten descriptions (the authoring budget rules) — the pass that cut 31% once can run again.
 5. Only after all four: revisit this decision. The trigger that would actually justify

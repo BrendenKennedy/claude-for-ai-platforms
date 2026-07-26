@@ -14,11 +14,6 @@
 | [`testing`](../.claude/skills/testing/SKILL.md) | How verification works in THIS repo — the cheapest-to-costliest confidence ladder and the exact commands that work today. |
 | [`wave-planning`](../.claude/skills/wave-planning/SKILL.md) | Turn ONE settled feature goal into a parallel build plan — N agent tasks that don't collide, emitted as a dependency-tagged wave manifest (id / deps / files / task). |
 
-## Skills — workflow (always on)
-
-| Skill | What it carries |
-|---|---|
-
 ## Skills — gated (flipped by `/intake` via `skillOverrides`)
 
 | Skill | Kind | Default | What it carries |
@@ -119,19 +114,19 @@
 
 | Hook | Event | Does |
 |---|---|---|
-| [`guard-agent-config.py`](../.claude/hooks/guard-agent-config.py) | PreToolUse · Edit|Write |  |
-| [`guard-iac.py`](../.claude/hooks/guard-iac.py) | PreToolUse · Edit|Write |  |
-| [`guard-k8s-manifests.py`](../.claude/hooks/guard-k8s-manifests.py) | PreToolUse · Edit|Write |  |
-| [`guard-notebook-outputs.py`](../.claude/hooks/guard-notebook-outputs.py) | PreToolUse · Edit|Write |  |
-| [`guard-pyproject.py`](../.claude/hooks/guard-pyproject.py) | PreToolUse · Edit|Write |  |
-| [`guard-secrets.py`](../.claude/hooks/guard-secrets.py) | PreToolUse · Edit|Write |  |
-| [`run-leakage-tests.sh`](../.claude/hooks/run-leakage-tests.sh) | Stop | a leaked split never rides out quietly. |
-| [`run-security-tests.sh`](../.claude/hooks/run-security-tests.sh) | Stop | Stop hook: the security regression tier runs before the session ends. |
-| [`scan-untrusted-content.py`](../.claude/hooks/scan-untrusted-content.py) | PostToolUse · WebFetch|Read |  |
-| [`session-orient.py`](../.claude/hooks/session-orient.py) | SessionStart · startup|clear |  |
-| [`validate-bash.sh`](../.claude/hooks/validate-bash.sh) | PreToolUse · Bash | THREE tiers, first match wins: |
-| [`validate-manifests.py`](../.claude/hooks/validate-manifests.py) | PostToolUse · Edit|Write |  |
-| [`validate-python.py`](../.claude/hooks/validate-python.py) | PostToolUse · Edit|Write |  |
+| [`guard-agent-config.py`](../.claude/hooks/guard-agent-config.py) | PreToolUse · Edit\|Write | guard the agent's own tool surface — MCP servers and permissions. |
+| [`guard-iac.py`](../.claude/hooks/guard-iac.py) | PreToolUse · Edit\|Write | block infrastructure-as-code that opens something it shouldn't. |
+| [`guard-k8s-manifests.py`](../.claude/hooks/guard-k8s-manifests.py) | PreToolUse · Edit\|Write | block Kubernetes manifests that violate the platform-security canon. |
+| [`guard-notebook-outputs.py`](../.claude/hooks/guard-notebook-outputs.py) | PreToolUse · Edit\|Write | notebooks commit clean — block writing .ipynb with baked outputs. |
+| [`guard-pyproject.py`](../.claude/hooks/guard-pyproject.py) | PreToolUse · Edit\|Write | keep dependency edits out of pyproject.toml — that's `uv add`'s job. |
+| [`guard-secrets.py`](../.claude/hooks/guard-secrets.py) | PreToolUse · Edit\|Write | block writes that embed a credential — secrets never enter tracked files. |
+| [`run-leakage-tests.sh`](../.claude/hooks/run-leakage-tests.sh) | Stop | the leakage tests run before the session ends — a leaked split never rides out quietly. |
+| [`run-security-tests.sh`](../.claude/hooks/run-security-tests.sh) | Stop | the security regression tier runs before the session ends. |
+| [`scan-untrusted-content.py`](../.claude/hooks/scan-untrusted-content.py) | PostToolUse · WebFetch\|Read | annotate fetched or read content that looks like it's steering you. |
+| [`session-orient.py`](../.claude/hooks/session-orient.py) | SessionStart · startup\|clear | inject "where are we" orientation so a session never starts blind. |
+| [`validate-bash.sh`](../.claude/hooks/validate-bash.sh) | PreToolUse · Bash | block never-OK shell commands, ask on irreversible ones, allow the rest. |
+| [`validate-manifests.py`](../.claude/hooks/validate-manifests.py) | PostToolUse · Edit\|Write | format and validate manifests after an edit. Never blocks. |
+| [`validate-python.py`](../.claude/hooks/validate-python.py) | PostToolUse · Edit\|Write | format + lint edited Python files with ruff. |
 
 Also: the policy canon in [`.claude/memory/policy/`](../.claude/memory/policy/), the live
 project state in [`.claude/memory/process/`](../.claude/memory/process/), and the process

@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
-# PreToolUse(Bash) guard — THREE tiers, first match wins:
+# PreToolUse(Bash) guard — block never-OK shell commands, ask on irreversible ones, allow the rest.
+#
+# THREE tiers, first match wins:
 #
 #   BLOCK (exit 2)        never OK: root/home wipes, .env reads, piping a download into a shell.
 #   ASK   (JSON + exit 0) legit but irreversible: destructive ops get a confirmation dialog that
