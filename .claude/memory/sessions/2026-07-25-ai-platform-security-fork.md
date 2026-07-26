@@ -221,9 +221,59 @@ project. Renamed before the push, in two groups:
 **No version bump.** Nothing ever shipped under the singular name and there are no tags in this
 clone, so a `1.3.1` for a name no user ever saw would be invented history.
 
+## Increment 6 — the split was reversed (v1.4.0)
+
+One command from pushing the split, the user asked the better question: why two repos, when
+`/intake` could just ask which kind of project this is?
+
+They were right, and the evidence was already in hand. The fork was **a superset, not a
+divergence** — `/intake` already classified into two families and already flipped `skillOverrides`
+per lane, so the machinery existed and was proven. Against that: 65 of 107 inherited files
+untouched (pure duplication), branch 11 commits ahead of `main` with **zero divergence**, and the
+`check-scaffold.sh` exit-status bug as a live example of the cherry-picking tax a split would have
+imposed forever. Merged as a clean fast-forward; renamed to **`claude-for-ml-platforms`**.
+
+### The merge only worked because both wings gate
+
+This is the part that mattered. Merging two families into one repo makes the always-on set the
+*union* of both — every project paying for what it didn't pick. Always-on was **17 skills**; it is
+now **5** (the chassis). The security/platform spine and the DS core are both archetype-gated, and
+`skillListingBudgetFraction` came back down 0.04 → 0.03.
+
+**`agent-security` needed care rather than a sed.** It was made always-on eight days earlier on an
+explicit rationale — *security defaults must not be opt-in* — and re-gating it as a side effect of a
+context optimisation would have been exactly the kind of quiet reversal this repo's own doctrine
+warns about. The resolution that made it defensible: **the skill was never the floor.** The floor is
+the hooks (always on, zero context) plus the canon (on-demand); both hold regardless of profile. So
+it gates on *"is there an LLM or agent in this at all?"* — asked **separately from the archetype**,
+because the archetype maps wrong in both directions: a tabular project calling a model has an
+agentic surface, an inference platform serving a classifier may not. Residual risk (a project that
+adds an agent later and never flips it on) is real, recorded in `project-definition.md` where
+`/gate` reads it — not argued away.
+
+### §3.9 scales instead of applying uniformly
+
+A uniform security track asks a CV project about admission control, which is how a checklist loses
+legitimacy and starts getting bypassed — the same failure `secure-cicd` warns about for pipelines.
+Three sizes now (platform lane · model-building with an LLM · model-building without), and
+**`N/A — <archetype>` is a valid recorded gate answer** while silence is not.
+
+### What this cost and didn't
+
+Nothing was wasted: every file was already on the branch, and the merge was a fast-forward. The
+`claude-for-ai-platform(s)` naming work from increment 5 was superseded within the hour — a real
+cost of having planned the split first, though the naming *audit* it forced (the `/upgrade` clone
+URL) would have been needed either way.
+
 ## Still open
 
-- **The push itself.** `add_repo` (needed to widen the session's git proxy beyond
+- **The `claude-for-ai-platforms` repo is now orphaned** — created, never pushed to, superseded.
+  The user should delete it, or keep it as a redirect placeholder.
+- **The GitHub repo rename is a user action** — `claude-for-datascience` →
+  `claude-for-ml-platforms`. The docs already name the new one, so the documented clone URLs are
+  wrong until that rename happens. GitHub redirects the old URL afterwards.
+- **The push itself** was resolved for `main` (merged and pushed). What remains blocked:
+  `add_repo` (needed to widen the session's git proxy beyond
   `claude-for-datascience`) returns `requires approval` and the prompt does not reach this surface;
   `git ls-remote` against the new repo fails with `could not read Password`, confirming the proxy
   rejects it. The rename and verification are done and committed on

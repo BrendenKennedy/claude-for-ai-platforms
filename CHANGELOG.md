@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to claude-for-ai-platforms. Format follows [Keep a Changelog](https://keepachangelog.com/);
+All notable changes to claude-for-ml-platforms. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versions follow [SemVer](https://semver.org/) per the stability contract in
 [CONTRIBUTING.md](CONTRIBUTING.md). Installed projects can compare their
 `.claude/scaffold-version` stamp against these entries to see what they're missing — and run
@@ -12,6 +12,67 @@ versions follow [SemVer](https://semver.org/) per the stability contract in
 > stamp names an old number: 0.4 → 0.4 · 0.5/0.6/0.7 → 0.5 · 0.8/0.9 → 0.6 · 0.10/0.11 → 0.7 —
 > and the stamp's commit **sha** remains the precise reference (`/upgrade`'s three-way logic
 > keys on the sha, not the number).
+
+## [1.4.0] — 2026-07-26
+
+**One scaffold, two families.** The AI-platform security work was built as a fork and was about to
+be split into its own repo. It is merged back instead, and `/intake` asks which kind of project you
+are starting. Also renamed: `claude-for-datascience` → **`claude-for-ml-platforms`**, because
+roughly 60% of the tree is now platform and security and the old name misdescribed it.
+
+### Why the merge rather than the split
+
+The fork was never a divergence — it was a superset. `/intake` already classified projects into two
+families and already flipped `skillOverrides` per lane, so the machinery for "ask what you're
+building, turn on the right lanes" existed and was proven. Against that, two repos meant permanent
+duplication: **65 of 107 inherited files were untouched**, and the branch was 11 commits ahead of
+`main` with zero divergence. The `check-scaffold.sh` swallowed-exit-status bug found during the
+fork's dogfood pass was the proof — a parent bug that a split would have forced us to cherry-pick
+forever.
+
+### Changed — both wings now gate, always-on drops 17 → 5
+
+The merge only pays off if neither family carries the other's context. Previously **17 skills were
+always-on**: the 5-skill chassis, the 5-skill security/platform spine, and the 7-skill DS core. A
+tabular-regression project paid for the agentic threat surface; an inference platform paid for `eda`
+and `notebooks`. Unifying would have made that worse for everyone.
+
+Now **only the chassis is always-on** — `process`, `governance`, `testing`, `memory`,
+`wave-planning`. Everything else is gated and set by `/intake`. `skillListingBudgetFraction` comes
+back down from `0.04` to `0.03`.
+
+**`agent-security` was always-on on a recorded rationale — "security defaults must not be opt-in" —
+and that has NOT been quietly reversed.** The resolution is that the skill was never the security
+floor. The floor is the **hooks** (wired in `settings.json`, always on, zero context cost) plus the
+**canon** in `memory/policy/` (loaded on demand by `governance`); both hold for every project
+regardless of profile. The skill is the deep-dive. So it is gated on **"is there an LLM or an agent
+in this at all?"** — a question `/intake` now asks *separately from the archetype*, because a
+"tabular" project that calls a model has an agentic surface and an "inference platform" serving a
+classifier may not. The answer is recorded in `project-definition.md` where a later `/gate` sees it,
+and `settings.json` carries a `_security_floor_comment` stating all of this at the point of change.
+
+**Existing installs are unaffected until they opt in:** gating is by presence in `skillOverrides`,
+so a project whose `settings.json` omits these keys keeps them always-on. `/upgrade` preserves the
+profile rather than overwriting it.
+
+### Changed — `PROCESS.md` §3.9 and `/gate` scale by archetype
+
+The security track previously read as one size for everyone, which is how a checklist becomes
+something people route around. §3.9 now carries a table sizing it three ways — any platform lane
+(full track), model-building **with** an LLM/agent (full on the AI surface, N/A on the cluster
+surface), and model-building **without** one (data and model-governance floor only). `/gate` reads
+the archetype from `project-definition.md` and marks non-applicable items **`N/A — <archetype>`**
+explicitly.
+
+**"N/A for this archetype" is a valid gate answer; silence is not.** An item nobody considered reads
+identically to one considered and dismissed, and only one of those is safe. A definition doc with no
+archetype is itself gate debt — it means `/intake` never ran.
+
+### Changed — framing
+
+`README.md` and `CLAUDE.md` now present the two families as equal citizens rather than a platform
+scaffold with DS underneath, and `/intake` asks the family question before the lane, explicitly not
+defaulting to either. A project that trains a model *and* ships it gets both blocks on.
 
 ## [1.3.0] — 2026-07-25
 
@@ -123,7 +184,7 @@ register rather than quietly resolved:
 
 ### Changed — the repo name
 
-The scaffold's own name is now **`claude-for-ai-platforms`** (plural) throughout, matching the repo
+The scaffold's own name is now **`claude-for-ml-platforms`** (plural) throughout, matching the repo
 it actually lives in. Every document said the singular — 24 occurrences across 13 files, including
 the README title, both documented clone URLs, and **the clone URL embedded in `/upgrade`**, where a
 wrong value fails silently for every downstream project. The AWS IAM identity in `infra-aws` and
@@ -253,7 +314,7 @@ platform runs on, the engines that move data between them, and the clouds that h
 
 ## [1.0.0] — 2026-07-25
 
-**The AI-platform security fork.** `claude-for-datascience` 0.9.0 became `claude-for-ai-platforms`:
+**The AI-platform security fork.** `claude-for-datascience` 0.9.0 became `claude-for-ml-platforms`:
 a scaffold for building AI platforms securely. The data-science layer is kept and regated, not
 removed — evaluating an agent is an empirical problem, and the split discipline and statistical
 honesty that make model evaluation trustworthy are what make agent evaluation trustworthy.

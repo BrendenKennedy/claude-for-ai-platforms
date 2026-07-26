@@ -115,7 +115,7 @@ if printf '%s' "$cmd" | grep -Eq '(^|[;&|`([:space:]])dvc[[:space:]]+(gc|destroy
 fi
 
 # A6) Destructive AWS operations (infra-aws skill): bucket/cluster/instance removal, and any IAM
-#     mutation — the claude-for-ai-platforms role is deliberately least-privilege; widening it is a
+#     mutation — the claude-for-ml-platforms role is deliberately least-privilege; widening it is a
 #     human decision.
 if printf '%s' "$cmd" | grep -Eq '(^|[;&|`([:space:]])aws[[:space:]]+(s3[[:space:]]+rb|s3api[[:space:]]+delete-bucket|s3[[:space:]]+rm[[:space:]][^;|&]*--recursive|redshift[[:space:]]+delete-|ec2[[:space:]]+terminate-instances|sagemaker[[:space:]]+delete-)'; then
   ask "Destructive AWS operation (bucket/cluster/instance deletion) - confirm the resource, and that its data is versioned or disposable."

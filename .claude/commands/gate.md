@@ -23,7 +23,15 @@ assent** — a file path, a number, a link, a table row. "Yeah we did that" does
 
 3. **Walk the security & reliability track (`PROCESS.md` §3.9).** Every phase gate carries these
    items alongside the delivery ones, and they take evidence on exactly the same terms — a file, a
-   run id, a date. They are the ones most likely to be waved through, so ask for the artifact:
+   run id, a date. They are the ones most likely to be waved through, so ask for the artifact.
+
+   **First read the archetype from `project-definition.md` and size the track to it** (§3.9 table).
+   A cv/tabular/time-series project with no LLM in it does not carry the cluster and adversarial
+   items; a model-building project *with* an LLM does carry the AI-surface ones. Mark the items that
+   don't apply **`N/A — <archetype>`**, explicitly, in the phase-state record. Do not skip them
+   silently: an item nobody considered looks exactly like one that was considered and dismissed, and
+   only one of those is safe. If the definition doc has no archetype, that is itself gate debt —
+   `/intake` hasn't run.
    - **Threat model current** (P3 onward) — `.claude/memory/process/threat-model.md` exists, is
      dated, and its version covers the architecture as it stands now. A threat model predating the
      current design is unchecked, not checked.

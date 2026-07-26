@@ -4,11 +4,14 @@ The map of the Claude configuration here: what lives under `.claude/` and when t
 Depth deliberately lives in the skills/docs this points to — skills auto-surface by description;
 this file is for the always-on conventions and registration. Project details: the skills + `README.md`.
 
-> **claude-for-ai-platforms** — a scaffold for building **AI platforms securely**: agent and LLM
-> security, Kubernetes, SRE, observability, identity, and supply chain, with the data-science
-> fundamentals that eval work depends on kept underneath. Forked from `claude-for-datascience`.
+> **claude-for-ml-platforms** — one scaffold, two families of work, chosen at `/intake`:
+> **build an AI platform securely** (agent and LLM security, Kubernetes, SRE, observability,
+> identity, supply chain) or **build a model** (CV · tabular · time-series · LLM fine-tuning).
+> Neither is bolted on: the platform family needs the DS fundamentals that eval work rests on, and
+> a model that ships eventually needs somewhere to run. Only the five-skill chassis is always-on —
+> **both families gate**, so you pay context for the one you picked.
 > Archetypes (agent platform · RAG service · inference platform · eval harness · MLOps platform ·
-> and the inherited cv / tabular / time-series / LLM model-building lanes) are lanes, flipped by
+> cv / tabular / time-series / LLM model-building) are lanes, flipped by
 > what you're building. One-time setup, in order: **`/intake`** (the "what are we building?"
 > interview + the **security-posture interview** → `memory/process/project-definition.md`, then the
 > stack → `settings.json` `skillOverrides` + placeholders), then **`/bootstrap`** (builds the
@@ -61,14 +64,20 @@ The rules that apply to essentially every change (fuller policy via the `governa
 ## Skills — `.claude/skills/<name>/SKILL.md`
 Auto-surface by description (that text is the entire routing surface — see
 `memory/reference/authoring-extensions.md` before adding one). Tiers:
-- **Always-on chassis:** `process` · `governance` · `testing` · `memory` · `wave-planning`
-- **Always-on security & platform spine:** `agent-security` (the agentic threat surface + the design
-  ladder that bounds it) · `threat-modeling` (the artifact) · `observability` (OTel + agent
-  telemetry) · `reliability-sre` (SLOs, resilience, incidents) · `agent-evaluation` (trajectories,
-  judges, safety suites)
-- **Always-on DS core (archetype-agnostic):** `datasets` · `eda` · `evaluation` · `statistics` ·
-  `visualization` · `notebooks` · `reporting`
-- **Gated** (`/intake` flips via `skillOverrides`; off = zero context cost):
+- **Always-on chassis — the only tier that is never gated:** `process` · `governance` · `testing` ·
+  `memory` · `wave-planning`. Five skills, both families, every project.
+- **Gated** (`/intake` flips via `skillOverrides`; off = zero context cost). **Both wings gate**, so
+  a tabular-regression project never pays for the agentic threat surface and an inference platform
+  never pays for `eda` and `notebooks`:
+  - *security & platform spine:* `agent-security` (the agentic threat surface + the design ladder
+    that bounds it) · `threat-modeling` (the artifact) · `observability` (OTel + agent telemetry) ·
+    `reliability-sre` (SLOs, resilience, incidents) · `agent-evaluation` (trajectories, judges,
+    safety suites). **`agent-security` keys off "is there an LLM or agent in this at all?", not the
+    archetype** — on for every platform lane *and* LLM fine-tuning. The security floor does not
+    depend on it: the floor is the **hooks** (always on, zero context) plus the **canon**
+    (on-demand). See `settings.json` `_security_floor_comment`.
+  - *DS core:* `datasets` · `evaluation` · `statistics` (on by default — any project with data
+    measures something) · `eda` · `visualization` · `notebooks` · `reporting`
   - *platform:* `kubernetes` · `policy-as-code` · `authn-authz` · `secrets-management` ·
     `supply-chain-security` · `secure-cicd` · `iac-terraform` · `gitops` · `containers` ·
     `serving` · `monitoring`

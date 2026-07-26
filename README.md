@@ -1,12 +1,21 @@
-# claude-for-ai-platforms
+# claude-for-ml-platforms
 
-A Claude Code scaffold for building **AI platforms securely** — agent and LLM security, Kubernetes,
-SRE, observability, identity, and supply chain, grounded in published framework canon.
+A Claude Code scaffold for two kinds of work, picked at setup:
 
-> Forked from [`claude-for-datascience`](https://github.com/BrendenKennedy/claude-for-datascience).
-> The data-science layer is kept, not bolted on: evaluating an AI platform is an empirical problem,
-> and the split discipline, statistical honesty, and error-analysis habits that make model evaluation
-> trustworthy are the same ones that make *agent* evaluation trustworthy.
+- **Build an AI platform securely** — agent and LLM security, Kubernetes, SRE, observability,
+  identity, and supply chain, grounded in published framework canon.
+- **Build a model** — computer vision, tabular, time-series, or LLM fine-tuning, with the split
+  discipline, statistical honesty, and error-analysis habits that make a result trustworthy.
+
+> **Neither half is bolted on.** Evaluating an AI platform is an empirical problem: the habits that
+> make *model* evaluation trustworthy are the same ones that make *agent* evaluation trustworthy.
+> And a model that ships eventually needs somewhere to run. `/intake` asks which you're doing and
+> configures the rest — only a five-skill chassis is always on, so you carry the context for the
+> family you picked, not both.
+>
+> Previously published as `claude-for-datascience`; the platform half was developed as a fork and
+> merged back rather than kept separate, because 60% of the tree is shared and maintaining it twice
+> was the worse option.
 
 ## What this is
 
@@ -37,9 +46,9 @@ advice. It makes the defaults good and the omissions visible.
 ## Quick start
 
 ```bash
-git clone https://github.com/BrendenKennedy/claude-for-ai-platforms.git
+git clone https://github.com/BrendenKennedy/claude-for-ml-platforms.git
 cd /path/to/your-project
-/path/to/claude-for-ai-platforms/install.sh .    # never overwrites; safe to re-run
+/path/to/claude-for-ml-platforms/install.sh .    # never overwrites; safe to re-run
 ```
 
 Then, in Claude Code:

@@ -21,19 +21,28 @@ definition only on a genuine pivot, which also means a decision-log entry.)
 - **Open question.** "What are we building?" in plain conversation — not AskUserQuestion. Let the
   user talk; follow up until you can state in your own words what is produced, for whom, and what
   decision it changes. Reflect it back and get a "yes, that's it."
-- **Classify the archetype** (AskUserQuestion once you have context). This fork's lanes, in two
-  families:
-  - **Platform lanes** (the primary ones here): **agent platform** (an agentic system with tools and
-    memory) · **RAG service** · **inference platform** (serving models at scale) · **eval harness**
-    (measuring models/agents) · **MLOps/data platform** (the pipeline substrate).
-  - **Model-building lanes** (inherited, still fully supported): computer vision · classical DS on
-    structured/tabular data · time-series/forecasting · LLM fine-tuning.
+- **Ask which family first, then the lane** (AskUserQuestion once you have context). This is *the*
+  question the whole scaffold configures itself from — the two families are equal citizens, so do
+  not present one as the default:
+  - **Are we building a platform, or building a model?** (Or both — a project that trains a model
+    *and* ships it is legitimate and gets both blocks on; say so rather than forcing a pick.)
+  - **Platform lanes:** **agent platform** (an agentic system with tools and memory) · **RAG
+    service** · **inference platform** (serving models at scale) · **eval harness** (measuring
+    models/agents) · **MLOps/data platform** (the pipeline substrate).
+  - **Model-building lanes:** computer vision · classical DS on structured/tabular data ·
+    time-series/forecasting · LLM fine-tuning.
   - Also possible: analytics & reporting · autonomous systems/robotics.
 
-  **Be honest about lane fit, out loud.** The chassis, the DS-core workflow skills, the security
-  canon, and the `PROCESS.md` phases are archetype-agnostic. Platform lanes get the platform skills
-  plus `/bootstrap` deploy/policy/observability/eval skeletons; the model-building lanes get their
-  existing skills and skeletons. Out of lane (autonomous systems, pure analytics): the chassis still
+- **Then ask the one question that does not follow from the lane: is there an LLM or an agent in
+  this at all?** It decides `agent-security`, and the archetype does not imply it — a "tabular"
+  project that calls a model has an agentic surface, and an "inference platform" serving a
+  classifier may not. Record the answer in `project-definition.md`; a later `/gate` reads it.
+
+  **Be honest about lane fit, out loud.** The chassis and the `PROCESS.md` phases are
+  archetype-agnostic; **everything else is gated, including the DS core and the security spine**, so
+  what you set here is what the project gets. Platform lanes get the platform skills plus
+  `/bootstrap` deploy/policy/observability/eval skeletons; model-building lanes get the DS core plus
+  their own skills and skeletons. Out of lane (autonomous systems, pure analytics): the chassis still
   holds — there is still data discovery, a baseline, and eval — but no lane skills or skeleton back
   it. State exactly what fits and what doesn't, and ask whether to proceed with the gaps recorded —
   never silently pretend covered.
@@ -216,14 +225,40 @@ Edit `.claude/settings.json` — set each key to `"on"` or `"off"` from the answ
 | `object-and-lakehouse` | the project stores data in object storage, or uses Parquet/Iceberg/Delta |
 | `workflow-orchestration` | the project runs scheduled or event-driven workflows on a real engine |
 
-**Platform-lane defaults**, unless the interview says otherwise: `kubernetes`, `authn-authz`,
-`supply-chain-security`, `secure-cicd`, `guardrails`, `mcp-security`, `containers`, `serving` on;
-`policy-as-code`, `secrets-management`, `iac-terraform`, `gitops`, `llm-red-teaming` on when their
-question said yes. The model-building lanes keep their existing defaults and these stay off.
+### The two wings — both gate, so ask before assuming
 
-**Budget note:** this fork raises `skillListingBudgetFraction` to `0.04` because more skills are on
-by default. If a project genuinely doesn't need a lane, turning it **off** is free context — say so
-in the report rather than leaving everything on "just in case."
+Only the chassis (`process`, `governance`, `testing`, `memory`, `wave-planning`) is always-on.
+Everything else below is yours to set, including skills that used to be free.
+
+| Skill | Turn on when |
+|---|---|
+| `agent-security` | **the project involves an LLM or an agent at all** — every platform lane, and LLM fine-tuning. Key it off *that* question, not the archetype: a "tabular" project that calls a model is still an agentic surface. Ask it explicitly if the definition doc is ambiguous. |
+| `threat-modeling` | any platform lane, or a model-building project handling regulated/personal data. Needed by P3. |
+| `observability` | the project runs a service anyone depends on. On for every platform lane. |
+| `reliability-sre` | the project has users who notice when it breaks — i.e. it ships. On for every platform lane; off for a research/notebook project. |
+| `agent-evaluation` | the thing being measured is an agent or LLM system (trajectories, judges, safety suites) rather than a classifier. Pairs with, not replaces, `evaluation`. |
+| `datasets` `evaluation` `statistics` | **on by default in both families** — any project with data defines splits, measures something, and has to say whether a difference is real. Turn off only for a pure-infrastructure project with no model in it. |
+| `eda` `visualization` `notebooks` `reporting` | the project explores data, produces figures, or writes findings up. On for every model-building lane; usually off for an inference-platform or MLOps lane, which consumes models rather than building them. |
+
+**Platform-lane defaults**, unless the interview says otherwise: the five spine skills above, plus
+`kubernetes`, `authn-authz`, `supply-chain-security`, `secure-cicd`, `guardrails`, `mcp-security`,
+`containers`, `serving` on; `policy-as-code`, `secrets-management`, `iac-terraform`, `gitops`,
+`llm-red-teaming` on when their question said yes. `eda`/`visualization`/`notebooks`/`reporting`
+off unless the project also builds models.
+
+**Model-building-lane defaults:** the DS core (`datasets`, `eda`, `evaluation`, `statistics`,
+`visualization`, `notebooks`, `reporting`) on, plus the lane's own skills; the platform block off.
+`agent-security` still **on** for LLM fine-tuning. `threat-modeling` on if the data is regulated.
+
+**Do not turn `agent-security` off to save context without saying so out loud.** The security floor
+is the hooks plus the canon, both of which hold regardless — but the skill is what makes the design
+ladder available, and a project that adds an agent later will not notice it is missing. Record the
+answer in `project-definition.md` so a later `/gate` can see it.
+
+**Budget note:** `skillListingBudgetFraction` is `0.03`. It was `0.04` when the security spine and
+the DS core were both always-on; gating both wings bought that back. If a project genuinely doesn't
+need a lane, turning it **off** is free context — say so in the report rather than leaving
+everything on "just in case."
 
 Exactly one tracker key and one config key should be `on`; the unchosen siblings go `off`. If the tracker
 or data-versioning answer is "none", leave all keys in that group `off`. **Lane skills flip from the
@@ -294,7 +329,7 @@ user WILL assume this command handled them unless step 4 tells them otherwise:
 ## 4. Template-mode cleanup (only when the repo IS the scaffold)
 
 Two ways this scaffold arrives: `install.sh` into an existing project (leaves a `.claude/scaffold-version`
-stamp), or GitHub's **"Use this template"** (the repo *is* a copy of claude-for-ai-platforms — no stamp, and it
+stamp), or GitHub's **"Use this template"** (the repo *is* a copy of claude-for-ml-platforms — no stamp, and it
 carries the scaffold's own delivery files, which are about the scaffold, not the user's project).
 
 **Detect template mode:** `install.sh` **and** `.claude/scripts/check-scaffold.sh` exist at repo root
@@ -307,7 +342,7 @@ If detected, **offer** the cleanup (AskUserQuestion — never do this silently; 
 - Replace `.github/workflows/ci.yml` (the *scaffold's* self-consistency CI — it would fail against a
   real project) with `.claude/templates/project-ci.yml`.
 - Replace `README.md` (the scaffold's own) with a minimal project stub: project title, quick start,
-  and a "configured by claude-for-ai-platforms vX" line. Keep `CHANGELOG.md` only if the user wants one.
+  and a "configured by claude-for-ml-platforms vX" line. Keep `CHANGELOG.md` only if the user wants one.
 - Optionally delete `.claude/scripts/check-scaffold.sh` — it checks the scaffold, not the project.
 
 If declined, note in the report that the scaffold's own delivery files are still in place.

@@ -342,6 +342,20 @@ Security and reliability are not a phase. They are a track that runs *through* t
 items on every gate (Part II) — because the cheapest place to fix either is the design, and a
 security review bolted on at P6 finds problems whose fix is a rewrite.
 
+**The track scales with the archetype; it does not switch off.** A model-building project and an
+agent platform carry very different surfaces, and pretending otherwise produces a checklist people
+route around. `/gate` reads the archetype from `project-definition.md` and sizes the track:
+
+| Archetype | The track is | Which reduces to |
+|---|---|---|
+| **Any platform lane** | the full track as written below | threat model at P3, controls + policy-as-code at P4, recorded adversarial run at P5, SLOs + exercised rollback at P6, telemetry + incident path at P7 |
+| **Model-building, with an LLM or agent in it** (incl. LLM fine-tuning) | full on the AI surface, light on the cluster surface | threat model covering training-data provenance, model supply chain, and inference-time injection; the adversarial run at P5; `M`-canon release gates. Cluster and network items are **N/A, recorded as such** |
+| **Model-building, no LLM or agent** (cv · tabular · time-series) | the data and model-governance floor only | data provenance and licensing (`D`), leakage discipline, PII handling, dependency and weight provenance (`C`), model card and release decision (`M`). Threat model required only if the data is regulated or personal |
+
+**"N/A for this archetype" is a valid gate answer and must be written down as one.** What is not
+valid is silence — an item that was never considered reads identically to one that was considered
+and dismissed, and only one of those is safe.
+
 The track maps onto NIST AI RMF's four functions without adding a parallel ceremony:
 
 | AI RMF function | Where it already lives | Enforced by |
