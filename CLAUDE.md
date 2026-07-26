@@ -4,6 +4,15 @@ The map of the Claude configuration here: what lives under `.claude/` and when t
 Depth deliberately lives in the skills/docs this points to — skills auto-surface by description;
 this file is for the always-on conventions and registration. Project details: the skills + `README.md`.
 
+> **Not configured yet?** If `memory/process/phase-state.md` says the project hasn't started, run
+> **`/setup`** — it walks the whole one-time sequence in one session. Everything below assumes it ran.
+>
+> **The rest of the documentation stays upstream** — the README, the tutorials, and `docs/` are not
+> installed into a project: <https://github.com/BrendenKennedy/claude-for-ai-platforms>. Two things
+> that do ship and are worth knowing: `bash .claude/scripts/check-scaffold.sh` verifies this config
+> is internally consistent, and `python3 .claude/scripts/build-reference.py docs/REFERENCE.md`
+> generates a component index from *this* project's `skillOverrides`.
+
 > **claude-for-ai-platforms** — one scaffold, two families of work, chosen at `/intake`:
 > **build an AI platform securely** (agent and LLM security, Kubernetes, SRE, observability,
 > identity, supply chain) or **build a model** (CV · tabular · time-series · LLM fine-tuning).

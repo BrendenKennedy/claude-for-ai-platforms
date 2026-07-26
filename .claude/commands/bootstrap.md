@@ -1,13 +1,15 @@
 ---
-description: One-time project bootstrap — generate the conf/ tree and the train/eval entry points the skills assume, then back-fill the placeholders that only become answerable once that code exists.
+description: One-time project bootstrap — generate the skeleton the skills assume (deploy/ + policies/ + observability/ + evals/ for a platform lane; the conf/ tree + train/eval entry points for a model lane), prove it runs, then back-fill the placeholders that only become answerable once that code exists.
 disable-model-invocation: true
 ---
 
-Create the project skeleton this scaffold's skills already describe — **archetype-aware**:
-deep-learning/CV (§3, with anomaly-detection and pipeline variants), tabular (§3e), time-series
-(§3f), and LLM fine-tuning (§3g). `/intake` picks the **stack**; this picks the **shape**. Until it
-runs, `config-hydra` documents a `conf/` tree that doesn't exist, the lane skills document entry
-points that don't exist, and "config over constants" governs nothing.
+Create the project skeleton this scaffold's skills already describe — **archetype-aware**, across
+both families: deep-learning/CV (§3, with anomaly-detection and pipeline variants), tabular (§3e),
+time-series (§3f), LLM fine-tuning (§3g), and the platform archetypes — agent platform, RAG service,
+inference platform, eval harness, MLOps platform (§3h). `/intake` picks the **stack**; this picks the
+**shape**. Until it runs, `config-hydra` documents a `conf/` tree that doesn't exist, `kubernetes`
+and `policy-as-code` document a `deploy/` and `policies/` tree that don't exist, the lane skills
+document entry points that don't exist, and "config over constants" governs nothing.
 
 Run it **after** `/intake`, **once**, on a fresh scaffold. Throughout, `<pkg>` means the project's Python
 package under `src/` (read it from `pyproject.toml` — do not invent one).

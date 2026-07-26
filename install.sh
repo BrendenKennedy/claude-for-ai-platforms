@@ -10,6 +10,8 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TARGET="${1:-.}"
+# The README and docs/ deliberately don't ship into target projects; point at them instead.
+REPO_URL="https://github.com/BrendenKennedy/claude-for-ai-platforms"
 
 if [ ! -d "$TARGET" ]; then
   echo "error: target dir '$TARGET' does not exist" >&2
@@ -88,13 +90,30 @@ echo "Stamped .claude/scaffold-version: $version ($sha)"
 echo
 echo "Done: $copied added, $skipped skipped (already present)."
 echo "Next: in Claude Code, run /setup — the whole sequence in one guided session"
-echo "(git preflight → /intake → /bootstrap → /gate P1 → /wrapup, checkpoint commits). Or piecewise:"
-echo "  1. /intake — the project-definition interview ('what are we building?'), then your stack"
-echo "     (tracker/config/data versioning) → skillOverrides + the stack placeholders."
-echo "  2. /bootstrap — builds the project skeleton the skills describe (conf/ tree, train.py,"
-echo "     eval.py, seed helper) and proves it runs. Until then the skills document a project"
-echo "     you don't have."
-echo "  3. Fill any remaining <PLACEHOLDER>s the setup commands list (architecture doc, policy domains,"
+echo "(git preflight → /intake → /bootstrap → /threat-model → /gate P1 → land + /wrapup, with a"
+echo "checkpoint commit per stage). Or piecewise:"
+echo "  1. /intake — the project-definition interview ('what are we building?'), the"
+echo "     security-posture interview (data sensitivity, tenancy, exposure, agent autonomy), then"
+echo "     your stack → skillOverrides + the stack placeholders. This is the one that shapes"
+echo "     everything downstream: it picks which family and lane you're in."
+echo "  2. /bootstrap — builds the skeleton the skills describe and proves it runs: deploy/ +"
+echo "     policies/ + observability/ + evals/ for a platform lane, or the conf/ tree +"
+echo "     train.py/eval.py for a model lane. Until then the skills document a project you"
+echo "     don't have."
+echo "  3. /threat-model — before the P1 gate, not after. A threat model produced now can still"
+echo "     change the design cheaply; one produced at delivery is documentation."
+echo "  4. Fill any remaining <PLACEHOLDER>s the setup commands list (architecture doc, policy domains,"
 echo "     data-remote URL) — those need your decisions, not an agent's guess."
-echo "  4. Edit .claude/settings.json permissions for this project's tools."
-echo "  5. Rename .claude/skills/_example and the *_TEMPLATE.md files as you build real ones."
+echo "  5. Edit .claude/settings.json permissions for this project's tools."
+echo "  6. Rename .claude/skills/_example and the *_TEMPLATE.md files as you build real ones."
+echo
+echo "What landed here: .claude/ (skills, agents, commands, hooks, memory), CLAUDE.md (the index,"
+echo "loaded every session — start there), and PROCESS.md (the phase gates /gate runs against)."
+echo "The README, the tutorials, and docs/ stay upstream: $REPO_URL"
+echo
+echo "Verify any time — both scripts ship and both work in an installed project:"
+echo "  bash .claude/scripts/check-scaffold.sh      # the scaffold's self-consistency checks"
+echo "  python3 .claude/scripts/check-hooks.py      # every guard: blocks, allows, fails open"
+echo "  python3 .claude/scripts/build-reference.py docs/REFERENCE.md"
+echo "     ^ generates a component index from THIS project's skillOverrides — your active surface,"
+echo "       not the scaffold's defaults."

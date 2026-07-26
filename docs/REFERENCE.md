@@ -76,7 +76,7 @@
 
 | Command | Does |
 |---|---|
-| [`/bootstrap`](../.claude/commands/bootstrap.md) | One-time project bootstrap — generate the conf/ tree and the train/eval entry points the skills assume, then back-fill the placeholders that only become answerable once… |
+| [`/bootstrap`](../.claude/commands/bootstrap.md) | One-time project bootstrap — generate the skeleton the skills assume (deploy/ + policies/ + observability/ + evals/ for a platform lane; the conf/ tree + train/eval… |
 | [`/compliance`](../.claude/commands/compliance.md) | Report control coverage against the crosswalk — which canon rules are actually enforced, which are only prose, which framework controls nothing covers, and which… |
 | [`/gate`](../.claude/commands/gate.md) | Run the current phase's exit-gate review (PROCESS.md §3.8) — walk the checklist demanding written evidence, review the risk register, and record pass or gate debt in… |
 | [`/harden`](../.claude/commands/harden.md) | Audit an existing surface — cluster manifests, IaC, an agent's tool grants, or a CI pipeline — against the platform/AI security canon and produce a prioritised… |

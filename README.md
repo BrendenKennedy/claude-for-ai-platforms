@@ -17,7 +17,7 @@ advice. It makes the defaults good and the omissions visible.
 ---
 
 **Contents** — [Which one am I?](#which-one-am-i) · [Quick start](#quick-start) ·
-[What it actually does](#what-it-actually-does) ·
+[Where to read next](#where-to-read-next) · [What it actually does](#what-it-actually-does) ·
 [The security model](#the-security-model-stated-plainly) · [Reference](#reference) ·
 [Verifying the scaffold](#verifying-the-scaffold-itself) · [Contributing](#contributing)
 
@@ -58,9 +58,10 @@ to run.
 ## Quick start
 
 ```bash
-git clone https://github.com/BrendenKennedy/claude-for-ai-platforms.git
-cd /path/to/your-project
-/path/to/claude-for-ai-platforms/install.sh .    # never overwrites; safe to re-run
+git clone https://github.com/BrendenKennedy/claude-for-ai-platforms.git ~/dev/claude-for-ai-platforms
+
+mkdir my-project && cd my-project && git init    # the target must be a git repo — /setup checks
+~/dev/claude-for-ai-platforms/install.sh .       # never overwrites; safe to re-run
 ```
 
 Then, in Claude Code:
@@ -72,7 +73,21 @@ Then, in Claude Code:
 Or run the pieces yourself: `/intake` (what are we building + the security-posture interview) →
 `/bootstrap` (generate and *prove* the skeleton) → `/threat-model` → `/gate`.
 
-New to it? [`docs/TUTORIAL.md`](docs/TUTORIAL.md) is a ~30-minute first project on synthetic data.
+New to it? [`docs/TUTORIAL.md`](docs/TUTORIAL.md) is a ~40-minute first project. It asks which family
+you picked and forks — nothing is provisioned, so both paths run for real on an empty directory.
+
+### Where to read next
+
+| | |
+|---|---|
+| [`docs/TUTORIAL.md`](docs/TUTORIAL.md) | First project, hands-on. Forks by family. |
+| [`PROCESS.md`](PROCESS.md) | The phase gates `/gate` enforces — **this one installs into your project** |
+| [`docs/REFERENCE.md`](docs/REFERENCE.md) | Every skill, command, agent, and hook. Generated. |
+| [`CHANGELOG.md`](CHANGELOG.md) | What changed per release; `/upgrade` applies the delta |
+| [`CONTRIBUTING.md`](CONTRIBUTING.md) | Extending the scaffold, and the stability contract |
+
+Note that `install.sh` copies `.claude/`, `CLAUDE.md`, and `PROCESS.md` — **not** this README or
+`docs/`. Inside an installed project, `CLAUDE.md` is the index and this repo is the manual.
 
 ## What it actually does
 

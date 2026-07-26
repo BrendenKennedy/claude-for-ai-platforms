@@ -9,10 +9,17 @@ session). Pulled in on demand, never auto-loaded.
 | Path | Holds |
 |---|---|
 | `sessions/` | dated refined summaries of each substantive session (`YYYY-MM-DD-<slug>.md`, newest-last); start from `sessions/_template.md` |
+| `incidents/` | blameless postmortems, written by `/postmortem` from `incidents/_template.md` (`reliability.md` `R8`) |
 | `reference/` | stable "how we do X" notes that recur but don't warrant a full skill |
 | `roadmap.md` | the living backlog: next · in-progress · done-recent |
+| `scaffold-journal.md` | observed quality of the `.claude/` scaffold itself — friction, wins, gaps; harvested by `/scaffold-retro` |
 | `policy/` | authored governance policy canon + decision logs (accessed via the `governance` skill) |
 | `process/` | live `PROCESS.md` state — `project-definition`, `phase-state` (gates), `risk-register`, `scope-ledger`, `decision-log`, `resources` (the resource matrix); written by `/gate`, `/intake`, and the infra lanes |
+
+> `CLAUDE.md` indexes this directory too, and that duplication is deliberate rather than drift: the
+> one there is *agent routing* (it names the specific `process/` files so the agent needn't open
+> another file), this one is *human orientation* (it has the authoring guidance below). Both are
+> kept complete by `check-scaffold.sh`; don't collapse them into one.
 
 ## Not to be confused with
 - **Repo-root `docs/`** — human/project documentation (READMEs, design contracts). That's project

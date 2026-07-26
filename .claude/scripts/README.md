@@ -9,4 +9,10 @@ Conventions:
 - Reference them from `settings.json` / commands via `$CLAUDE_PROJECT_DIR/.claude/scripts/<name>`.
 - Keep them fail-safe: a session-start or pre-tool script that errors shouldn't brick the session.
 
-Example uses: a `preflight.sh` connectivity check, a `SessionStart` setup script, a release helper.
+## What's here
+
+| Script | Does | Run it when |
+|---|---|---|
+| `check-scaffold.sh` | The scaffold's self-consistency suite — the map (`CLAUDE.md`, `README.md`, `settings.json`) must match the territory (`.claude/`). Its header comment is the canonical list of checks. | Before any PR; CI runs it |
+| `check-hooks.py` | Exercises every guard hook against crafted payloads: it blocks what it must, allows what it must, and **fails open** on malformed input. | After touching a hook; CI runs it |
+| `build-reference.py` | Generates `docs/REFERENCE.md` from frontmatter. **Works in an installed project too** — `build-reference.py docs/REFERENCE.md` gives you an index of *your* active surface, honouring your `skillOverrides`. | After adding a skill/command/agent/hook |

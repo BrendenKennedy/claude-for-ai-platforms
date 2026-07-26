@@ -29,6 +29,16 @@
 #   9. CITATIONS  — every canon rule id cited in a skill/agent/command resolves to a defined rule;
 #      + TEMPLATES  and the shipped k8s baseline passes the shipped conftest policies (skipped
 #                   silently when conftest isn't installed)
+#  10. CI         — every check-* script in .claude/scripts/ is actually invoked by CI (the README
+#                   claimed "CI runs both" while check-hooks.py was invoked by nothing)
+#  11. HOOK COVER — every hook has cases in check-hooks.py AND a fail-open case; coverage counted
+#                   in tool paths, not in claims (two hooks had none while three files said all did)
+#  12. MECHANISMS — every file a framework doc names in "How it lands here" exists; a control whose
+#                   enforcing mechanism is missing is decoration (frameworks/README.md rule 3)
+#  13. REF NOTES  — every memory/reference/ note is registered in CLAUDE.md (mirror of check 7 —
+#                   an unregistered note is unreachable)
+#  14. INDEXES    — templates/, scripts/, memory/ and docs/ each name every file they hold in their
+#                   own README (templates/ had documented 6 of 20; scripts/ named none of its three)
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -551,6 +561,40 @@ for f in .claude/memory/reference/*.md; do
     || fail "memory/reference/$name is not registered in CLAUDE.md — nothing will ever surface it"
 done
 [ "$fails" -eq "$ref_before" ] && ok "reference notes: every memory/reference/ note is registered in CLAUDE.md"
+
+# ---- 14. INDEXES ------------------------------------------------------------
+# Four directories carry their own README index, and three of them had drifted: templates/
+# documented 6 of 20 files, memory/ omitted two stores, scripts/ named none of its three scripts.
+# Same shape as check 8a (framework docs must be in the lineage table) — the index is the map, and
+# a map missing two thirds of the territory is worse than none.
+idx_before=$fails
+idx() { # $1 = index file, $2... = files that must be named in it
+  local index="$1"; shift
+  [ -f "$index" ] || return 0
+  for f in "$@"; do
+    [ -f "$f" ] || continue
+    grep -qF "$(basename "$f")" "$index" \
+      || fail "$f is not named in $index — an unindexed file is one nobody finds"
+  done
+}
+idx .claude/templates/README.md \
+    .claude/templates/*.yaml .claude/templates/*.yml .claude/templates/*.json \
+    .claude/templates/*.example .claude/templates/*.md \
+    .claude/templates/k8s/base/* .claude/templates/k8s/overlays/prod/* \
+    .claude/templates/policies/* .claude/templates/policies/conftest/*
+idx .claude/scripts/README.md .claude/scripts/*.sh .claude/scripts/*.py
+# memory/: the immediate children, which is what its Layout table covers.
+for p in .claude/memory/*; do
+  name="$(basename "$p")"
+  [ "$name" = "README.md" ] && continue
+  grep -qF "$name" .claude/memory/README.md \
+    || fail ".claude/memory/$name is not in memory/README.md's Layout table"
+done
+# docs/ is the scaffold repo's own and isn't shipped — same guard idiom as check 6.
+if [ -f install.sh ] && [ -f docs/README.md ]; then
+  idx docs/README.md docs/*.md
+fi
+[ "$fails" -eq "$idx_before" ] && ok "indexes: templates/, scripts/, memory/ and docs/ each name every file they hold"
 
 # ---- verdict ----------------------------------------------------------------
 echo
