@@ -37,6 +37,8 @@
 #                   enforcing mechanism is missing is decoration (frameworks/README.md rule 3)
 #  13. REF NOTES  — every memory/reference/ note is registered in CLAUDE.md (mirror of check 7 —
 #                   an unregistered note is unreachable)
+#  13b. PROCESS   — PROCESS.md's version header matches its own newest changelog entry (its Part V
+#                   rule 4 asks for both, and it has shipped disagreeing twice)
 #  14. INDEXES    — templates/, scripts/, memory/ and docs/ each name every file they hold in their
 #                   own README (templates/ had documented 6 of 20; scripts/ named none of its three)
 set -uo pipefail
@@ -49,23 +51,33 @@ fail() { printf 'FAIL  %s\n' "$1"; fails=$((fails + 1)); }
 ok()   { printf 'ok    %s\n' "$1"; }
 
 # ---- 1. DRIFT: disk -> docs -------------------------------------------------
+# CLAUDE.md ships into every project; README.md does NOT (install.sh copies .claude/, CLAUDE.md and
+# PROCESS.md only). So the README half runs in the scaffold repo only — recognizable by install.sh
+# at the root, the same idiom check 6 uses. Without this the whole suite reported ~90 failures in a
+# perfectly healthy installed project, which is why nobody could run it there.
+in_scaffold_repo=false
+[ -f install.sh ] && [ -f README.md ] && in_scaffold_repo=true
+readme_drift() { # $1 = kind, $2 = name, $3 = grep needle
+  $in_scaffold_repo || return 0
+  grep -q "$3" README.md || fail "$1 '$2' exists on disk but is not in README.md"
+}
 for dir in .claude/skills/*/; do
   name="$(basename "$dir")"
   [ "$name" = "_example" ] && continue
   grep -q "$name" CLAUDE.md  || fail "skill '$name' exists on disk but is not in CLAUDE.md"
-  grep -q "$name" README.md  || fail "skill '$name' exists on disk but is not in README.md"
+  readme_drift skill "$name" "$name"
 done
 for f in .claude/commands/*.md; do
   name="$(basename "$f" .md)"
   [ "$name" = "_TEMPLATE" ] && continue
   grep -q "/$name" CLAUDE.md || fail "command '/$name' exists on disk but is not in CLAUDE.md"
-  grep -q "$name" README.md  || fail "command '/$name' exists on disk but is not in README.md"
+  readme_drift command "/$name" "$name"
 done
 for f in .claude/agents/*.md; do
   name="$(basename "$f" .md)"
   [ "$name" = "_TEMPLATE" ] && continue
   grep -q "$name" CLAUDE.md  || fail "agent '$name' exists on disk but is not in CLAUDE.md"
-  grep -q "$name" README.md  || fail "agent '$name' exists on disk but is not in README.md"
+  readme_drift agent "$name" "$name"
 done
 # Hooks and scripts were never drift-checked against the docs — only their settings.json wiring
 # was (check 3). A hook could ship documented nowhere and CI stayed green. Matched on the STEM,
@@ -76,7 +88,7 @@ for f in .claude/hooks/*.sh .claude/hooks/*.py; do
   [ -f "$f" ] || continue
   name="$(basename "$f")"; stem="${name%.*}"
   grep -q "$stem" CLAUDE.md || fail "hook '$name' exists on disk but is not in CLAUDE.md"
-  grep -q "$stem" README.md || fail "hook '$name' exists on disk but is not in README.md"
+  readme_drift hook "$name" "$stem"
 done
 for f in .claude/scripts/*.sh .claude/scripts/*.py; do
   [ -f "$f" ] || continue
@@ -102,7 +114,9 @@ on_disk = {p.parent.name for p in pathlib.Path(".claude/skills").glob("*/SKILL.m
 always_on = on_disk - gated
 
 problems = []
-for doc in ("README.md", "CLAUDE.md"):
+# README.md is the scaffold repo's own and doesn't ship; CLAUDE.md does. Check whichever exist.
+docs = [d for d in ("README.md", "CLAUDE.md") if pathlib.Path(d).is_file()]
+for doc in docs:
     text = pathlib.Path(doc).read_text()
     # Explicit markers, not a prose regex. The first version of this check scanned from the phrase
     # "always-on" to the next line mentioning "gated" — which broke on a list that soft-wrapped onto
@@ -129,7 +143,7 @@ tier_status=$?
 if [ "$tier_status" -ne 0 ]; then
   fail "tier drift: the always-on skill tier in the docs disagrees with settings.json"
 else
-  ok "tiers: the always-on set in README.md + CLAUDE.md matches settings.json skillOverrides"
+  ok "tiers: the always-on set in the docs matches settings.json skillOverrides"
 fi
 
 # ---- 2. FRONTMATTER ---------------------------------------------------------
@@ -270,15 +284,18 @@ src_count="$(find .claude -type f ! -name '*.py[co]' ! -path '*/__pycache__/*' \
 src_count=$((src_count + 3))  # + CLAUDE.md + PROCESS.md + the version stamp
 src_ph="$(grep -rho --exclude-dir=__pycache__ '<PLACEHOLDER' .claude CLAUDE.md PROCESS.md | wc -l)"
 
-./install.sh "$tmp" >/dev/null || fail "install.sh exited nonzero"
-dst_count="$(find "$tmp" -type f | wc -l)"
-dst_ph="$(grep -rho '<PLACEHOLDER' "$tmp" | wc -l)"
-[ "$dst_count" = "$src_count" ] || fail "install landed $dst_count files, expected $src_count"
-[ "$dst_ph" = "$src_ph" ]       || fail "placeholders changed in transit: $src_ph -> $dst_ph"
+# There is no install.sh in an installed project — this check is the scaffold repo's own.
+if $in_scaffold_repo; then
+  ./install.sh "$tmp" >/dev/null || fail "install.sh exited nonzero"
+  dst_count="$(find "$tmp" -type f | wc -l)"
+  dst_ph="$(grep -rho '<PLACEHOLDER' "$tmp" | wc -l)"
+  [ "$dst_count" = "$src_count" ] || fail "install landed $dst_count files, expected $src_count"
+  [ "$dst_ph" = "$src_ph" ]       || fail "placeholders changed in transit: $src_ph -> $dst_ph"
 
-rerun="$(./install.sh "$tmp" | grep -c '^  add:' || true)"
-[ "$rerun" = "0" ] || fail "install.sh re-run added $rerun files — it must be idempotent"
-ok "install: $dst_count files land, $dst_ph placeholders intact, re-run adds nothing"
+  rerun="$(./install.sh "$tmp" | grep -c '^  add:' || true)"
+  [ "$rerun" = "0" ] || fail "install.sh re-run added $rerun files — it must be idempotent"
+  ok "install: $dst_count files land, $dst_ph placeholders intact, re-run adds nothing"
+fi
 
 # ---- 5. PLACEHOLDER OWNERSHIP -------------------------------------------------
 # A <PLACEHOLDER> is a promise that something fills it. The fillers are /intake §3, /bootstrap §6,
@@ -561,6 +578,32 @@ for f in .claude/memory/reference/*.md; do
     || fail "memory/reference/$name is not registered in CLAUDE.md — nothing will ever surface it"
 done
 [ "$fails" -eq "$ref_before" ] && ok "reference notes: every memory/reference/ note is registered in CLAUDE.md"
+
+# ---- 13b. PROCESS VERSION ---------------------------------------------------
+# PROCESS.md Part V rule 4 says "bump the version, one-line changelog entry". The document that
+# states that rule has now shipped twice with a header version older than its own newest changelog
+# entry (0.2.0 vs 0.3.0, then 1.0.0 vs the 1.4.0 §3.9 rewrite). Self-consistency within one file.
+python3 - <<'PY'
+import re, sys, os
+
+if not os.path.isfile("PROCESS.md"):
+    sys.exit(0)
+text = open("PROCESS.md").read()
+hdr = re.search(r"\*\*Version:\*\*\s*(\d+\.\d+\.\d+)", text)
+log = re.search(r"(?ms)^### Changelog\s*```\s*\n\s*(\d+\.\d+\.\d+)\s*\(", text)
+if not hdr or not log:
+    print("FAIL  PROCESS.md: could not find its version header or its changelog block")
+    sys.exit(1)
+if hdr.group(1) != log.group(1):
+    print(f"FAIL  PROCESS.md header says {hdr.group(1)} but its newest changelog entry is "
+          f"{log.group(1)} — Part V rule 4 asks for both")
+    sys.exit(1)
+PY
+if [ $? -eq 0 ]; then
+  ok "process version: PROCESS.md's header matches its own newest changelog entry"
+else
+  fail "process version: PROCESS.md's header and changelog disagree (see above)"
+fi
 
 # ---- 14. INDEXES ------------------------------------------------------------
 # Four directories carry their own README index, and three of them had drifted: templates/

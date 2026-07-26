@@ -1,0 +1,71 @@
+# Session: Documentation cohesion audit — v1.5.0
+
+**Date:** 2026-07-26 · **Focus:** make every doc factually true, mechanically enforced, and coherent for a new user in either family
+
+## Summary
+v1.4.0 renamed the scaffold and merged two families into one repo, and that landed correctly at the
+root — README and CLAUDE.md had accurate counts, correct tiers, coherent two-family framing. Every
+layer below root still spoke as the pre-merge data-science scaffold ("family" appeared 6× at root,
+0× in any supporting doc). Audited the whole documentation surface with three parallel Explore
+agents, re-verified every finding against the files personally, then fixed three layers: ~20 wrong
+statements, the information architecture, and — the part that matters most — the checks that would
+have caught all of it. Shipped as v1.5.0; PROCESS.md's own version went to 1.1.0.
+
+## Changes & artifacts
+- `.github/workflows/ci.yml` — runs `check-hooks.py`. README said "CI runs both"; nothing invoked it.
+- `.claude/scripts/check-hooks.py` — fail-open cases for `guard-secrets.py` and `validate-bash.sh`,
+  the two hooks that lacked one while three files claimed every hook had one. Both passed: correct,
+  just untested.
+- `.claude/scripts/check-scaffold.sh` — six new checks (CI wiring, hook coverage incl. fail-open via
+  AST, framework mechanism paths, reference-note registration, PROCESS.md version self-consistency,
+  index completeness); check 1 extended to hooks + scripts; check 3 extended to agent preloads,
+  shebang/exec agreement, and `"off"` overrides. Exit-status bug fixed in checks 1/2b/3; check 6 now
+  separates a crashed generator from a stale file.
+- `.claude/scripts/build-reference.py` — `hook_line()` reads Python docstrings (10 of 13 hook rows
+  were blank), `cell()` escapes `|` (the `Edit|Write` matcher broke the table), chassis derived from
+  `settings.json` instead of hardcoded (removes the empty abolished tier).
+- `install.sh`, `.claude/commands/intake.md` — the post-install and post-intake onboarding text, both
+  pre-1.4.0 on three counts. `.claude/commands/bootstrap.md` — description covered only the model
+  archetypes.
+- `docs/` — `TUTORIAL.md` split into chooser + `tutorial-platform.md` + new `tutorial-model.md`; new
+  `docs/README.md`. `README.md` — "Where to read next" table, incl. the first-ever link to PROCESS.md.
+- `PROCESS.md` — retitled for both families, new §2.1 phase-mapping table, Appendix A named, 1.1.0.
+- Three drifted indexes completed (`templates/` 6→20 files, `memory/` +2 stores, `scripts/` 0→3).
+- 14 stale "this fork"/"parent scaffold" refs; the agent-preload rule; `google-sre.md`'s R8 path;
+  two `skillListingBudgetFraction` / `ml-engineer` errors; the threat-model mislabel in two files.
+
+## Key decisions
+- **Preload rule re-derived on interchangeability, not always-on-ness.** v1.4.0 gated every domain
+  skill, making "preload only ALWAYS-ON skills" illegal for 9 of 10 real preloads. The rule's actual
+  purpose was that a *tool*-gated skill is one of a swappable pair; a *lane*-gated one has no
+  sibling. Rejected "chassis only" — it would have been routed around within a release.
+- **Deleted the `skillListingBudgetFraction` literal rather than correcting it.** It drifted three
+  times in eight days; `settings.json` already carries the value and the reasoning.
+- **Did not rename PROCESS.md's phases.** `decision-log.md` records that decision with a good reason
+  (~50 files cross-reference them by number and name). The §2.1 mapping table gets the same outcome
+  for 10 lines. An audit shouldn't silently reverse a reasoned architectural decision.
+- **Kept the deliberate duplications** (memory index ×2, policy-domain table ×4) and enforced them
+  instead of collapsing — each copy serves a different reader. Labelled as such in-file.
+- **Every new check was proven to fail on a broken fixture**, not merely to pass. A check that can't
+  fail is the defect class the wave exists to prevent.
+
+## State
+Both `check-scaffold.sh` (17 checks) and `check-hooks.py` (87 cases) pass in the scaffold repo **and**
+in a freshly installed project. All relative links resolve. `shellcheck` runs in CI only (not
+installed locally — this box is a DGX Spark, no apt).
+
+**Biggest find, discovered while verifying my own new text:** `check-scaffold.sh` had never worked in
+an installed project — checks 1, 1b and 4 require `README.md` and `install.sh`, neither of which
+ships, so it reported ~90 failures on a healthy project. Now gated on the scaffold repo; an installed
+project passes clean.
+
+## Follow-ups
+- `ml-engineer` and `platform-engineer` carry no `skills:` preload — is that right? Deliberately not
+  decided here; adding one to make a doc sentence true would be the tail wagging the dog. → roadmap
+- `build-reference.py`'s `TOOLS` set is the last hardcoded taxonomy (no on-disk signal for the
+  tool/lane split; `**Pinned:**` isn't one — 30 skills carry it, including lane skills). → roadmap
+- v1.5.0 is committed but **not tagged or released** — `scripts/publish-releases.sh` covers
+  v0.9.0–v1.4.0 and needs a v1.5.0 row.
+
+## Related
+- `2026-07-25-ai-platform-security-fork.md` — the merge this audit cleans up after.

@@ -1,11 +1,13 @@
-# PROCESS.md — A Hybrid Data Science Project Framework
+# PROCESS.md — A Hybrid Project Framework for AI Platforms and Models
 
-> **Version:** 1.0.0 · **Last updated:** 2026-07-25 · **Owner:** _(you)_
+> **Version:** 1.1.0 · **Last updated:** 2026-07-26 · **Owner:** _(you)_
 > **Status:** Living document. Edited after every project retrospective (see Part V).
 
-This is a reusable operating system for running data science projects — solo or as a lead. It is a deliberate cross-breed of the proven, published frameworks below, keeping what each does best and discarding what each underemphasizes. Every phase ends in an **exit gate**: questions you must answer in writing before moving on. Gates are the difference between a process and winging it.
+This is a reusable operating system for running data and AI projects — an AI platform, a model, or both — solo or as a lead. It is a deliberate cross-breed of the proven, published frameworks below, keeping what each does best and discarding what each underemphasizes. Every phase ends in an **exit gate**: questions you must answer in writing before moving on. Gates are the difference between a process and winging it.
 
 **How to use it:** copy this file into the root of every new project repo. Fill the templates in Part IV as you go. Treat unfilled gates as blockers, not suggestions. In this repo, gates are not left to discipline — the `/gate` command walks the current phase's checklist and records the verdict (see §3.8). After shipping, run the retro and edit this document itself.
+
+**Which family you're in** is recorded in `.claude/memory/process/project-definition.md` by `/intake`, and the gates size themselves to it: §3.9's archetype table scales the security and reliability track three ways rather than asking a tabular-regression project about admission control. The phase *names* below lean data-science, for lineage reasons Part I explains; §2.1 maps them onto platform work.
 
 ---
 
@@ -74,6 +76,19 @@ CRISP-DM remains the most widely used data science process framework decades aft
 ```
 
 Iteration is expected: evaluation results routinely send you back to features or data. What is *not* allowed is skipping a gate on the way forward.
+
+### 2.1 Reading the phases for a platform project
+
+The phase names come from the data-science lineage in Part I and are deliberately unchanged — every skill in this scaffold cross-references them by number *and* name, so a rename would cost drift across ~50 files for presentational gain. What changes between the two families is what each phase is *about*, not what it demands:
+
+| Phase | On a model project | On a platform project |
+|---|---|---|
+| **P2** Data Discovery | sources, splits, label quality, class balance | corpora and retrieval sources, model providers, where data crosses a **trust boundary** |
+| **P3** Data Architecture | storage layout, immutability, the data pipeline | system architecture **and its trust boundaries** — this is the input `/threat-model` consumes |
+| **P4** Feature Engineering | features, leakage discipline, the feature dictionary | controls, policy-as-code, pipeline hardening — the mechanisms that make P3's threats decided rather than noted |
+| **P5** Modeling & Evaluation | train, tune, compare against a baseline | agent/system evaluation — trajectories, judges, and a **recorded adversarial run** |
+
+P1, P6 and P7 read the same for both. The exit-gate questions in Part III are written to be answerable either way; where one genuinely does not apply, `N/A — <archetype>` is a valid recorded answer and silence is not.
 
 ---
 
@@ -554,7 +569,15 @@ Run this loop across three or four projects and the result is a personal methodo
 
 ### Changelog
 ```
-1.0.0 (2026-07-25) — AI-platform fork. Security & reliability become a track through every phase
+1.1.0 (2026-07-26) — The §3.9 security & reliability track scales by archetype instead of applying
+                      uniformly: a table sizes it three ways (any platform lane; model-building with
+                      an LLM or agent in it; model-building without one), and `N/A — <archetype>`
+                      becomes a valid recorded gate answer that /gate writes explicitly. A uniform
+                      track asks a CV project about admission control, which is how a checklist loses
+                      legitimacy; silence, however, is still not an answer. Adds §2.1, mapping the
+                      data-science phase names onto platform work, and retitles the document and
+                      Appendix A to name both families.
+1.0.0 (2026-07-25) — AI-platform layer. Security & reliability become a track through every phase
                       (§3.9) rather than a late review: threat model at P3, controls + policy-as-code
                       at P4, recorded adversarial run at P5, SLOs + exercised rollback + signed
                       artifacts at P6, telemetry + incident path at P7. Adds §3.10 (incidents as a
@@ -581,7 +604,7 @@ Run this loop across three or four projects and the result is a personal methodo
 
 ---
 
-## Appendix A — Worked example: internal document-QA agent platform (v1)
+## Appendix A — Worked example (Platform family): internal document-QA agent platform (v1)
 
 A partial fill to show intended use. Note that the security artifacts (T9, T13) are filled at P3
 alongside the architecture, not retrofitted before launch.
