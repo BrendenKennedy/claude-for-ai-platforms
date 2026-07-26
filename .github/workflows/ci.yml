@@ -18,5 +18,10 @@ jobs:
           # -S warning: info-level findings (e.g. SC2016 on a regex that matches a literal $HOME) don't block
           shellcheck -S warning install.sh .claude/hooks/*.sh .claude/scripts/*.sh
 
-      - name: check-scaffold (drift, frontmatter, config, install)
+      - name: check-scaffold (self-consistency — the script header lists every check)
         run: .claude/scripts/check-scaffold.sh
+
+      # The guards' own behaviour: every hook blocks what it must, allows what it must, and
+      # fails OPEN on malformed input. Stdlib-only by design, so there is nothing to install.
+      - name: check-hooks (guard behaviour — blocks, allows, fails open)
+        run: python3 .claude/scripts/check-hooks.py

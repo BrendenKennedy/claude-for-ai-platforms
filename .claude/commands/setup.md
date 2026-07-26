@@ -1,9 +1,10 @@
 ---
 description: >
   Full one-time project setup in one guided session — git preflight, then /intake (definition +
-  stack) → checkpoint commit → /bootstrap (skeleton, proven) → checkpoint commit → /gate (P1
-  review) → /wrapup (session recorded). Thin orchestrator: the logic lives in the piece commands;
-  this sequences them and manages git.
+  security posture + stack) → /bootstrap (skeleton, proven) → /threat-model (before the gate, while
+  the design is still cheap to change) → /gate (P1 review) → land + /wrapup, with a checkpoint
+  commit per stage. Thin orchestrator: the logic lives in the piece commands; this sequences them
+  and manages git.
 allowed-tools: "*"
 disable-model-invocation: true
 ---
@@ -36,8 +37,9 @@ this commit is the first one it applies to.
 
 ## 2. `/bootstrap` — skeleton, proven
 
-Invoke the `bootstrap` command and follow it verbatim — including its "prove it runs" step in
-full (real train/eval/resume on synthetic data).
+Invoke the `bootstrap` command and follow it verbatim — including its "prove it runs" step in full,
+whichever form that takes for the lane: real train/eval/resume on synthetic data for a model lane,
+or a rendering + policy-conformance + eval-harness pass for a platform lane.
 
 **Checkpoint commit** only after that verification actually passed: the skeleton + tests,
 `feat: bootstrap project skeleton (/bootstrap)`. A skeleton whose smoke didn't pass does not get

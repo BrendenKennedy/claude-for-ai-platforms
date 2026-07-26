@@ -97,11 +97,20 @@ tools: Read, Grep, Glob   # least-privilege — list only what it needs; omit to
 - **Description = capability → "Use when…" → "Triggers:".** Match how users actually phrase requests.
   It's the only thing the dispatcher routes on.
 - **Subagents have no Skill tool — wire skills deliberately.** `skills:` in the frontmatter preloads
-  full skill content at startup: use it for the 1–2 **always-on** skills the agent's non-negotiables
-  depend on (`eval-analyst` → `evaluation, datasets`). **Never preload a
-  tool-gated skill** — it may be off; the agent instead checks `settings.json` `skillOverrides` and
-  Reads the active one's `SKILL.md`. Any "consult skill X" line in an agent body must resolve to one
-  of those two mechanics, or it's a dead reference.
+  full skill content at startup. Preload only the **1–3** skills the agent's non-negotiables depend
+  on — it is paid on every dispatch. Two hard limits, both about *interchangeability*:
+  - **Never preload a tool-gated skill** (`tracking-mlflow`⇄`tracking-wandb`,
+    `config-hydra`⇄`config-omegaconf`, …). One of a swappable pair is the wrong one half the time —
+    the agent checks `settings.json` `skillOverrides` and Reads the active one's `SKILL.md` instead.
+  - **A lane-gated skill may be preloaded only while it is `"on"`** in `skillOverrides`, and only by
+    an agent that exists for that lane (`sre-analyst` → `reliability-sre, observability`;
+    `threat-modeler` → `threat-modeling`). A lane skill has no sibling: it is on, or the agent
+    depending on it should not be dispatched — say so in the agent's body. `check-scaffold.sh`
+    check 3 enforces the mechanical half — the skill must exist and must not be `"off"`. The
+    tool-gated ban and "is this agent actually for that lane" are review, not check.
+
+  Any "consult skill X" line in an agent body must resolve to one of those two mechanics, or it's a
+  dead reference.
 - **Policy + memory wiring.** Agents flag governance calls to the caller, never decide them; before
   treating an odd-but-deliberate choice as a defect, they check the decision logs
   (`memory/policy/*-decision-log.md`, `memory/process/decision-log.md`). Planning-shaped agents also
@@ -154,8 +163,10 @@ owns that file; this section covers only the hook conventions this repo enforces
 - **Exit codes:** `0` = allow / pass. `2` = **block** — a `PreToolUse` denies the call; a `Stop` hook
   refuses to end the session; the message on **stderr** is surfaced to the agent. Other non-zero =
   error (treated as non-blocking depending on event).
-- **Events + matcher** (as wired in `settings.json`): `PreToolUse`/`PostToolUse` take a `matcher`
-  (`"Bash"`, `"Edit|Write"`); `Stop` takes none. See the `hooks` block for the exact shape.
+- **Events + matcher** (as wired in `settings.json`): `PreToolUse`/`PostToolUse` take a **tool-name**
+  matcher (`"Bash"`, `"Edit|Write"`); `SessionStart` takes a **source** matcher — not a tool name —
+  (`"startup|clear"`, so a mid-work `resume`/`compact` doesn't re-fire); `Stop` takes none. See the
+  `hooks` block for the exact shape.
 
 **The two hard conventions here — both learned the hard way:**
 1. **Fail-open on anything you can't handle.** Unparseable stdin, missing tool, timeout → `exit 0`
@@ -170,13 +181,14 @@ owns that file; this section covers only the hook conventions this repo enforces
 
 | Want to… | Copy | Event · exit |
 |---|---|---|
-| block a dangerous/secret-leaking **edit** | `guard-secrets.py`, `guard-pyproject.py` | PreToolUse Edit\|Write · exit 2 to block |
+| block a dangerous/secret-leaking **edit** | `guard-secrets.py`, `guard-pyproject.py`, `guard-notebook-outputs.py` | PreToolUse Edit\|Write · exit 2 to block |
 | block a **misconfigured manifest** (k8s, IaC) | `guard-k8s-manifests.py`, `guard-iac.py` | PreToolUse Edit\|Write · exit 2 to block |
 | **confirm-gate** a change rather than block it | `guard-agent-config.py` | PreToolUse Edit\|Write · `permissionDecision: "ask"` |
 | block a dangerous **shell** command | `validate-bash.sh` | PreToolUse Bash · block/ask/allow tiers |
 | **format/lint** after an edit (never block) | `validate-python.py`, `validate-manifests.py` | PostToolUse Edit\|Write · always exit 0 |
 | **annotate** content the agent just read | `scan-untrusted-content.py` | PostToolUse WebFetch\|Read · `additionalContext`, never blocks |
 | run a **gate** before the session ends | `run-leakage-tests.sh`, `run-security-tests.sh` | Stop · exit 2 to block |
+| **orient** the session at startup | `session-orient.py` | SessionStart startup\|clear · `additionalContext`, never blocks |
 
 **Security-flavored hooks** (guards against secrets, destructive ops, egress) implement the security
 canon — consult `governance` → `.claude/memory/policy/security.md` for what they must enforce, and keep
@@ -209,9 +221,10 @@ that bite, so it belongs here.
 
 ### Framework docs — `memory/policy/frameworks/<framework>.md`
 
-This fork sources its rules from published security frameworks, so canon may cite framework control
-IDs (`[LLM01]`, `[ASI06]`, `[CIS 5.2.5]`) — a deliberate change from the parent scaffold, recorded in
-`memory/process/decision-log.md`. The rule that keeps it from becoming citation soup:
+This scaffold sources its rules from published security frameworks, so canon may cite framework
+control IDs (`[LLM01]`, `[ASI06]`, `[CIS 5.2.5]`). That is a deliberate change from the earlier
+convention of zero external citations, recorded in `memory/process/decision-log.md`. The rule that
+keeps it from becoming citation soup:
 
 **Canon cites IDs; `frameworks/` holds the text.** No URLs, no framework prose, no version numbers in
 a canon file — those live in the framework doc the ID resolves to. Format, lineage table, and

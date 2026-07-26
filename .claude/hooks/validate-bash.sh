@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
-# PreToolUse(Bash) guard — THREE tiers, first match wins:
+# PreToolUse(Bash) guard — block never-OK shell commands, ask on irreversible ones, allow the rest.
+#
+# THREE tiers, first match wins:
 #
 #   BLOCK (exit 2)        never OK: root/home wipes, .env reads, piping a download into a shell.
 #   ASK   (JSON + exit 0) legit but irreversible: destructive ops get a confirmation dialog that
@@ -28,6 +30,190 @@ ask() {
 }
 
 # ── BLOCK tier ───────────────────────────────────────────────────────────────
+
+# B0) System package management on an NVIDIA appliance box (DGX Spark / GB10 Grace-Blackwell /
+#     Jetson). These ship a vendor-managed OS image where the kernel, the CUDA stack, and the boot
+#     chain are held together by pinned distro packages. `apt update` re-points the indexes and
+#     `apt upgrade` then walks the driver/CUDA/kernel packages off the vendor's tested set — which
+#     is how these boxes get bricked, and recovery is a full re-image, not a rollback.
+#
+#     Host-gated: this fires ONLY on a detected appliance box, so it is inert on an ordinary Linux
+#     dev machine or CI runner. Detection fails OPEN — if we cannot tell what the host is, we do not
+#     block. It is deliberately NOT cached: the first version wrote the verdict to a /tmp marker, and
+#     that marker was (a) writable by the very agent being guarded, so `echo no > …` was a one-line
+#     off-switch, and (b) never invalidated, so one transient miss (driver not loaded, nvidia-smi not
+#     yet on PATH) disabled the guard permanently and silently. Detection costs ~21ms; a cache that
+#     can fail unsafe is not worth 21ms.
+#
+#     The way to install things on these boxes: static/prebuilt binaries into ~/.local/bin, uv for
+#     Python, containers for anything that wants a distro. See env-uv and security.md S10.
+#     CLAUDE_APPLIANCE_HOST=yes|no overrides detection — `yes` opts in a box we don't recognise,
+#     `no` opts out. Any other value is ignored and detection runs, so a typo can't silently disable
+#     the guard. It is also what makes this testable on an x86 CI runner.
+is_appliance_host() {
+  case "${CLAUDE_APPLIANCE_HOST:-}" in
+    yes|1|true) return 0 ;;
+    no|0|false) return 1 ;;
+  esac
+  # GB10 / GB2xx Grace-Blackwell, or an NVIDIA-branded Spark/Jetson board. `timeout` because a
+  # wedged driver — this hardware class's characteristic failure — makes nvidia-smi hang, and a
+  # guard that stalls every command is a guard people rip out.
+  if command -v nvidia-smi >/dev/null 2>&1 &&
+     timeout 2 nvidia-smi -L 2>/dev/null | grep -Eqi 'GB[0-9]{2,3}|DGX[[:space:]]*Spark'; then
+    return 0
+  fi
+  [ -f /etc/nv_tegra_release ] && return 0
+  grep -Eqi 'dgx[[:space:]]*spark|AI TOP ATOM' /sys/devices/virtual/dmi/id/product_name \
+       /proc/device-tree/model 2>/dev/null
+}
+
+# Cheap pre-filter, then a real tokenizing decision. The first version was a single regex anchoring
+# the subcommand immediately after apt/apt-get — so `apt-get -y install foo` walked straight through
+# while `apt-get install -y foo` blocked, and `sudo apt-get -qq update && sudo apt-get -y
+# dist-upgrade` (verbatim the sequence S10 exists to prevent) was allowed. A regex cannot do this:
+# it has to know where a command *starts* to tell `apt install` from `git commit -m "apt install"`.
+if printf '%s' "$cmd" | grep -Eqi 'apt|dpkg|aptitude' && is_appliance_host; then
+  CLAUDE_BASH_CMD="$cmd" python3 - <<'PY'
+import os, re, shlex, sys
+
+cmd = os.environ.get("CLAUDE_BASH_CMD", "")
+
+
+def strip_heredocs(text):
+    """A heredoc body is DATA — a commit message, a file being written, a doc about this very
+    rule — not commands. Keep it only when it is fed to a shell, which does execute it.
+    Without this, `git commit -F - <<'EOF' … apt-get -y install … EOF` blocks, and writing about
+    the policy becomes impossible. (It blocked this repo's own release commit.)"""
+    lines, out, i = text.split("\n"), [], 0
+    while i < len(lines):
+        line = lines[i]
+        out.append(line)
+        m = re.search(r"<<-?\s*(['\"]?)([A-Za-z_][A-Za-z0-9_]*)\1", line)
+        if m:
+            head = line.strip().split()[0] if line.strip() else ""
+            executes = os.path.basename(head.strip("(){};&|")) in SHELLS
+            delim, j = m.group(2), i + 1
+            while j < len(lines) and lines[j].strip() != delim:
+                if executes:
+                    out.append(lines[j])
+                j += 1
+            i = j
+        i += 1
+    return "\n".join(out)
+
+# Mutating package managers that take no subcommand — the whole invocation is the hazard.
+ALWAYS = {"add-apt-repository", "do-release-upgrade", "unattended-upgrade",
+          "unattended-upgrades", "dpkg-reconfigure"}
+# apt / apt-get / aptitude subcommands that only READ. Everything else is default-deny, because
+# the miss list (reinstall, build-dep, edit-sources) is longer than the safe list.
+APT_RO = {"list", "show", "showsrc", "showpkg", "search", "policy", "depends", "rdepends",
+          "madison", "moo", "help", "--help", "--version", "-v"}
+# dpkg query flags. Same reasoning inverted: dpkg's mutating surface is large and long-formed.
+DPKG_RO = {"-l", "-L", "-s", "-S", "-p", "-c", "-I", "--list", "--listfiles", "--status",
+           "--search", "--print-avail", "--contents", "--info", "--help", "--version"}
+# A container is the remedy S10 recommends — the blast radius is an image, not the host. Blocking
+# it is the false positive most likely to get the whole rule disabled.
+CONTAINER = {"docker", "podman", "nerdctl", "ctr", "apptainer", "singularity"}
+# Wrappers that pass through to the real command.
+WRAPPERS = {"sudo", "doas", "env", "nohup", "time", "command", "nice", "ionice", "setsid",
+            "stdbuf", "xargs", "builtin", "exec"}
+SHELLS = {"sh", "bash", "zsh", "dash", "ksh"}
+# Remote execution: judged, not exempted. The target may well be another appliance, and this guard
+# has no way to know. Deliberately stricter than the container carve-out — a container's blast
+# radius is an image, another host's is another host.
+REMOTE = {"ssh", "rsh"}
+# Grouping tokens shlex leaves behind: `( apt update )`, `{ apt update; }`.
+GROUPING = {"(", ")", "{", "}"}
+
+
+def segments(text):
+    """Split into command segments, and pull out $( ) and `` bodies as segments of their own."""
+    out, depth, buf = [], 0, ""
+    i = 0
+    while i < len(text):
+        two = text[i:i + 2]
+        if two == "$(":
+            depth += 1; i += 2; out.append(""); continue
+        if text[i] == ")" and depth:
+            depth -= 1; i += 1; continue
+        if depth == 0 and (two in ("&&", "||") or text[i] in ";|\n&"):
+            out.append(buf); buf = ""
+            i += 2 if two in ("&&", "||") else 1
+            continue
+        buf += text[i]; i += 1
+    out.append(buf)
+    # Command substitutions were flattened above; re-extract them so their contents are judged too.
+    for m in re.finditer(r"\$\(([^()]*)\)|`([^`]*)`", text):
+        out.append(m.group(1) or m.group(2) or "")
+    return [s for s in out if s.strip()]
+
+
+def verdict(seg, depth=0):
+    """True if this segment mutates system packages."""
+    if depth > 3:
+        return False
+    try:
+        toks = shlex.split(seg)
+    except ValueError:
+        toks = seg.split()
+    while toks:
+        head = os.path.basename(toks[0])
+        if toks[0] in GROUPING:
+            toks = toks[1:]; continue
+        if "=" in toks[0] and not toks[0].startswith("-"):   # VAR=value prefix
+            toks = toks[1:]; continue
+        if head in CONTAINER:
+            return False                                     # allowed: runs inside an image
+        if head in REMOTE:
+            toks = toks[1:]
+            while toks and toks[0].startswith("-"):          # ssh -p 22 …
+                toks = toks[2:] if toks[0] in ("-p", "-i", "-l", "-o") else toks[1:]
+            return any(verdict(s, depth + 1) for s in segments(" ".join(toks[1:])))
+        if head == "kubectl" or head == "oc":
+            if "exec" in toks:
+                tail = toks[toks.index("exec") + 1:]
+                if "--" in tail:
+                    tail = tail[tail.index("--") + 1:]
+                return any(verdict(s, depth + 1) for s in segments(" ".join(tail)))
+            return False
+        if head in SHELLS:
+            # bash -c "<body>" — judge the body, not the wrapper.
+            for j, t in enumerate(toks[1:], 1):
+                if t == "-c" and j + 1 < len(toks):
+                    return any(verdict(s, depth + 1) for s in segments(toks[j + 1]))
+            return False
+        if head in WRAPPERS:
+            toks = toks[1:]
+            while toks and toks[0].startswith("-"):          # sudo -E, xargs -n1, …
+                toks = toks[1:]
+            continue
+        break
+    if not toks:
+        return False
+    head = os.path.basename(toks[0])
+    if head in ALWAYS:
+        return True
+    rest = toks[1:]
+    if head in ("apt", "apt-get", "aptitude"):
+        for t in rest:                                       # first non-flag token = subcommand
+            if not t.startswith("-"):
+                return t not in APT_RO
+        return False                                         # bare `apt`, or flags only
+    if head == "dpkg":
+        return not any(t in DPKG_RO for t in rest)
+    return False                                             # apt-cache, apt-mark query, git, echo…
+
+
+try:
+    sys.exit(2 if any(verdict(s) for s in segments(strip_heredocs(cmd))) else 0)
+except Exception:
+    sys.exit(0)                                              # fail OPEN, always
+PY
+  if [ $? -eq 2 ]; then
+    echo "BLOCKED: this is an NVIDIA appliance box (DGX Spark / GB10 / Jetson) and apt/dpkg mutations are not safe on it. The OS image is vendor-managed: apt update re-points the indexes and the next upgrade walks the driver, CUDA and kernel packages off the tested set. Recovery is a re-image, not a rollback. Instead: a static or prebuilt binary into ~/.local/bin, uv for anything Python (uv tool install / uv add), or a container for anything that really wants a distro - running apt INSIDE a container image is fine and is allowed. Read-only apt is fine (apt list, apt show, apt-cache, dpkg -l). See security.md S10 and the env-uv skill. If you are certain this specific package is safe and vendor-sanctioned, the user must run it themselves - outside this session." >&2
+    exit 2
+  fi
+fi
 
 # B1) Recursive force-deletes aimed at a root / home path.
 if printf '%s' "$cmd" | grep -Eq 'rm[[:space:]]+-[a-zA-Z]*(rf|fr)[a-zA-Z]*[[:space:]]+(/|~/?|/\*|\$HOME/?|/home/[^[:space:];]+)([[:space:]]|;|$)'; then

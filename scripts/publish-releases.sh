@@ -29,12 +29,16 @@ release() {
     echo "skip  $tag (already published)"
     return
   fi
+  # The releases API rejects an abbreviated sha with "Release.target_commitish is invalid" —
+  # target_commitish takes a branch name or a FULL 40-char sha. Resolve before sending.
+  local full
+  full=$(git rev-parse --verify "${target}^{commit}")
   gh release create "$tag" \
      --repo "$REPO" \
-     --target "$target" \
+     --target "$full" \
      --title "$title" \
      --notes "$notes"
-  echo "ok    $tag -> $target"
+  echo "ok    $tag -> $full"
 }
 
 # ---------------------------------------------------------------------------------------------

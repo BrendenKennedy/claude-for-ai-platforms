@@ -358,8 +358,13 @@ Print a short summary:
   to-do the user must do by hand, which is wrong and makes it look like intake failed.
 
 Then: **this command is one-time** — re-run only to change stacks (the definition step is skipped on
-re-runs; see step 0). **Next step is `/bootstrap`**, which builds the skeleton (`conf/` +
-`train.py`/`eval.py`) that every skill's examples assume — it reads the definition doc's Setup
-implications, so its interview should mostly be confirmation. Say this explicitly — the scaffold is
-not usable until it's run. After `/bootstrap`: run **`/gate`** — the definition doc is most of P1's
-gate evidence, so the review should be quick.
+re-runs; see step 0). **Next step is `/bootstrap`**, which builds the skeleton every skill's examples
+assume — `deploy/` + `policies/` + `observability/` + `evals/` for a platform lane, or the `conf/`
+tree + `train.py`/`eval.py` for a model lane. It reads the definition doc's Setup implications, so
+its interview should mostly be confirmation. Say this explicitly — the scaffold is not usable until
+it's run.
+
+After `/bootstrap`: **`/threat-model`**, then **`/gate`**. The threat model comes before the gate
+deliberately — produced now it can still change the design cheaply; produced at delivery it is
+documentation. The definition doc is most of P1's gate evidence, so the review itself should be
+quick.

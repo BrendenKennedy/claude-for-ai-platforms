@@ -9,16 +9,16 @@ it, and what we took from it. The *musts* live one level up in `policy/<domain>.
 > to. Neither restates the other — a canon rule that reproduces a framework's prose belongs here, and
 > a framework doc that invents an obligation belongs up there.
 
-This deviates from the parent scaffold's convention that "methodology cites lineage; policy asserts
-rules" — see `memory/process/decision-log.md` for why the fork changed it. The compromise: canon
-stays citation-light (IDs only, no URLs, no prose), and everything a reader would otherwise have to
-go find lives here.
+This deviates from the earlier convention that "methodology cites lineage; policy asserts rules",
+under which canon carried zero external citations — see `memory/process/decision-log.md` for why it
+changed. The compromise: canon stays citation-light (IDs only, no URLs, no prose), and everything a
+reader would otherwise have to go find lives here.
 
 ## Why version numbers matter here more than anywhere else
 
-Security frameworks move. The OWASP agentic list did not exist when the parent scaffold shipped; CIS
-Kubernetes has had multiple releases in a year; NIST SP 800-63 sat in draft for four years before
-going final. **A framework doc with no version and no verification date is worse than no doc** — it
+Security frameworks move. The OWASP agentic list did not exist when this scaffold's first release
+shipped; CIS Kubernetes has had multiple releases in a year; NIST SP 800-63 sat in draft for four
+years before going final. **A framework doc with no version and no verification date is worse than no doc** — it
 reads as current and silently isn't. So every file here carries an `**Identity:**` line and a
 `**Verified:**` date, and `/skill-update` treats a stale verification the same way it treats a stale
 tool pin.

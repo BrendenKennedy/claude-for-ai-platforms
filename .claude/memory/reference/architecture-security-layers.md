@@ -20,33 +20,26 @@ that explains the reasoning instead of naming the rule teaches people to argue w
 
 ## Why canon and skills are separate
 
-Inherited from the parent scaffold, and it holds harder here. Canon is *stable* — "images are pinned
-by digest" is true across cluster versions, cloud providers, and tooling generations. Skills are
-*current* — the exact `cosign verify` invocation is not stable, and pretending otherwise produces
-confidently stale instructions.
+A convention from this scaffold's data-science releases, and it holds harder now. Canon is *stable* —
+"images are pinned by digest" is true across cluster versions, cloud providers, and tooling
+generations. Skills are *current* — the exact `cosign verify` invocation is not stable, and
+pretending otherwise produces confidently stale instructions.
 
 So: canon has no version pins and no tool names it can avoid. Tool skills carry a `**Pinned:**` line
 and `/skill-update` keeps them honest. When a tool changes, one file changes.
 
 ## Why frameworks got their own subdirectory
 
-The parent scaffold's convention was *"methodology cites lineage; policy asserts rules"* — canon
-carried zero external citations. This fork changed it, deliberately, because the whole value
-proposition here is that the rules are sourced from professional frameworks rather than invented.
+Earlier releases carried zero external citations (*"methodology cites lineage; policy asserts
+rules"*). That changed deliberately, because the value proposition here is that the rules are
+sourced from professional frameworks rather than invented. The compromise that keeps canon readable:
+**canon cites control ids only**; the framework text, version, publisher, and verification date live
+in `policy/frameworks/`. `check-scaffold.sh` check 8 fails a cited id that resolves to nothing.
 
-The compromise that keeps canon readable: **canon cites control ids only** (`[LLM01]`, `[ASI06]`,
-`[CIS 5.2]`); the framework text, version, publisher, verification date, and *what we leave* live in
-`policy/frameworks/`. Canon gains a bracketed id per rule; it does not gain URLs, version numbers,
-or framework prose.
-
-`check-scaffold.sh` check 8 enforces the half that would otherwise rot: a cited id that resolves to
-nothing fails CI.
-
-**Why versions and verification dates are mandatory there and nowhere else in the repo:** security
-frameworks move faster than the tools do. The OWASP agentic list did not exist when the parent
-scaffold shipped. CIS Kubernetes had multiple releases in a year. NIST SP 800-63 sat in draft for
-four years and then went final. An unversioned framework doc reads as current and silently isn't —
-which is worse than no doc, because a reader trusts it.
+The operational rules for that directory — the mandatory file format, why version and verification
+dates are non-negotiable there, and the lineage table — live in
+[`policy/frameworks/README.md`](../policy/frameworks/README.md). Not restated here: two copies of one
+argument is how they drift apart.
 
 ## Why the same constraint is checked three times
 
@@ -84,19 +77,19 @@ to test and the one that decides whether the guard survives contact with real wo
 
 ## Why Kubernetes was un-parked
 
-The parent scaffold recorded a deliberate decision to park Kubernetes: *"Compose covers the
+Through v0.9.0 this scaffold recorded a deliberate decision to park Kubernetes: *"Compose covers the
 support-service need at this scaffold's scale; orchestration is a platform decision, not a scaffold
 one"* (`containers/SKILL.md`, plus the `2026-07-18-audit-and-lifecycle` session note and the
 roadmap).
 
 That reasoning was correct for a data-science scaffold, where orchestration is incidental to the
-work. It is wrong for this fork, where orchestration *is* the work — an AI platform runs on a
-cluster, and most of `platform-security.md` has no meaning without one.
+work. It is wrong once the scaffold covers AI platforms, where orchestration *is* the work — an AI
+platform runs on a cluster, and most of `platform-security.md` has no meaning without one.
 
 The reversal is recorded in `memory/process/decision-log.md` rather than performed silently, because
 the original decision was reasoned and a future reader deserves to see both halves.
 
-**Service mesh remains parked**, and for the parent's reasoning: mTLS is covered as a *property* in
+**Service mesh remains parked**, and for that same original reasoning: mTLS is covered as a *property* in
 `identity-and-access.md` `I7` (which a project can satisfy with or without a mesh), and traffic
 policy is a platform decision a scaffold shouldn't make. Revisit when a project needs it.
 

@@ -4,6 +4,15 @@ The map of the Claude configuration here: what lives under `.claude/` and when t
 Depth deliberately lives in the skills/docs this points to — skills auto-surface by description;
 this file is for the always-on conventions and registration. Project details: the skills + `README.md`.
 
+> **Not configured yet?** If `memory/process/phase-state.md` says the project hasn't started, run
+> **`/setup`** — it walks the whole one-time sequence in one session. Everything below assumes it ran.
+>
+> **The rest of the documentation stays upstream** — the README, the tutorials, and `docs/` are not
+> installed into a project: <https://github.com/BrendenKennedy/claude-for-ai-platforms>. Two things
+> that do ship and are worth knowing: `bash .claude/scripts/check-scaffold.sh` verifies this config
+> is internally consistent, and `python3 .claude/scripts/build-reference.py docs/REFERENCE.md`
+> generates a component index from *this* project's `skillOverrides`.
+
 > **claude-for-ai-platforms** — one scaffold, two families of work, chosen at `/intake`:
 > **build an AI platform securely** (agent and LLM security, Kubernetes, SRE, observability,
 > identity, supply chain) or **build a model** (CV · tabular · time-series · LLM fine-tuning).
@@ -50,6 +59,12 @@ The rules that apply to essentially every change (fuller policy via the `governa
 - **Config over constants** — hyperparameters and paths flow through the config system, never
   hardcoded or read from the environment mid-logic.
 - **Deps via `uv add`** — never hand-edit `pyproject.toml` (the `guard-pyproject` hook enforces).
+- **Never `apt` on a vendor-managed appliance box** (DGX Spark · GB10/Grace-Blackwell · Jetson).
+  The OS image is a tested set — `apt update` re-points the indexes and the next upgrade walks the
+  driver/CUDA/kernel off it, and recovery is a **re-image, not a rollback**. Use a static `aarch64`
+  binary in `~/.local/bin`, `uv` for anything Python, or a container — `apt` *inside* an image is
+  fine and allowed; over `ssh` it isn't. Read-only `apt list`/`show`/`policy` is fine.
+  `validate-bash.sh` B0 enforces this, host-gated and inert elsewhere (`security.md` `S10`).
 - **Don't hand-format** — the ruff hooks own style. Bite: `ruff check --fix` runs after *every*
   Edit/Write, so write an import and its usage in the **same** edit or F401 deletes it between.
 - **Terse working output** — status updates and findings, not narration; every reply becomes
@@ -134,7 +149,7 @@ All fail open; every one has block/allow/**fail-open** cases in `.claude/scripts
 | Hook | Event | Does |
 |---|---|---|
 | `session-orient.py` | SessionStart (startup·clear) | "where are we" briefing — phase, gate debt, **threat-model age, error-budget attention, expired policy exceptions**, last session, roadmap next |
-| `validate-bash.sh` | Pre · Bash | blocks root/home wipes, `.env` + kubeconfig + Secret reads, curl-pipe-to-shell; confirm dialog on destructive ops (recursive deletes, git/dvc discards, `kubectl delete`/`drain`/`exec`, `helm uninstall`, `terraform apply`/`destroy`, argocd/flux delete, vault delete, AWS + cluster RBAC mutation) |
+| `validate-bash.sh` | Pre · Bash | blocks root/home wipes, `.env` + kubeconfig + Secret reads, curl-pipe-to-shell, and **`apt`/`dpkg` mutation on an appliance box** (`S10`, host-gated); confirm dialog on destructive ops (recursive deletes, git/dvc discards, `kubectl delete`/`drain`/`exec`, `helm uninstall`, `terraform apply`/`destroy`, argocd/flux delete, vault delete, AWS + cluster RBAC mutation) |
 | `guard-pyproject.py` | Pre · Edit/Write | dependency edits go through `uv add`/`uv remove` |
 | `guard-notebook-outputs.py` | Pre · Edit/Write | `.ipynb` must commit output-stripped |
 | `guard-secrets.py` | Pre · Edit/Write | blocks credential-shaped writes — provider keys, JWTs, kubeconfig material, cloud SA keys |
@@ -151,7 +166,8 @@ All fail open; every one has block/allow/**fail-open** cases in `.claude/scripts
 On-demand store, never auto-loaded; read/write process is the `memory` skill.
 `sessions/` (dated summaries) · `incidents/` (postmortems, T11) · `reference/` (how-we-do-X notes,
 incl. `authoring-extensions.md` — read it before extending `.claude/` — plus
-`architecture-skills-vs-agents.md` and `architecture-security-layers.md`) · `roadmap.md` (backlog;
+`architecture-skills-vs-agents.md`, `architecture-security-layers.md`, and
+`remote-gpu-workflow.md`) · `roadmap.md` (backlog;
 doubles as the scope parking lot) · `scaffold-journal.md` (observed quality of the scaffold itself;
 harvested by `/scaffold-retro`) ·
 **`policy/`** (governance canon, 8 domains with citable rule ids: `security.md` `S#` (the dev loop) ·

@@ -135,6 +135,55 @@ servers — are `supply-chain.md` `C1`–`C8`.
 *Why: the development machine holds every credential the project has, which makes it the highest-value
 target in the system and the one with the least review.*
 
+## S10 — On a vendor-managed appliance box, the OS is not yours to update
+
+DGX Spark, GB10/Grace-Blackwell workstations, and Jetson boards ship a **vendor-managed OS image**:
+the kernel, the NVIDIA driver, the CUDA stack, and the boot chain are a tested set held together by
+pinned distro packages. `apt update` re-points the indexes; the next `apt upgrade` walks those
+packages off the vendor's set. The failure mode is not a broken package — it is a box that no longer
+boots, or one where CUDA silently stops working, and **recovery is a full re-image, not a rollback.**
+There is no lockfile for the host.
+
+So, on a detected appliance host, an agent **never** mutates system packages: any `apt`/`apt-get`/
+`aptitude` subcommand that isn't a read-only query, any `dpkg` invocation that isn't a query flag,
+`add-apt-repository`, `do-release-upgrade`, `dpkg-reconfigure`, `unattended-upgrade`. Read-only
+queries (`apt list`, `apt show`, `apt policy`, `apt-cache`, `dpkg -l/-L/-s`) are fine — knowing what
+is installed is not the hazard.
+
+Two scope decisions worth stating, because both are load-bearing:
+
+- **Inside a container it is allowed.** `docker run … apt-get install …` and `RUN apt-get install …`
+  in a Dockerfile are fine: the blast radius is an image, which is the whole reason a container is
+  the recommended remedy below. Blocking the sanctioned escape hatch is how a rule gets disabled.
+- **Over `ssh` or `kubectl exec` it is not.** The far end may be another appliance and this rule
+  cannot tell. Stricter than the container case on purpose — another host's blast radius is another
+  host.
+
+**What to do instead**, in order of preference:
+- A **static or prebuilt binary** into `~/.local/bin` (most CLI tools ship one; check the arch —
+  these boxes are `aarch64`, and an x86 binary will simply not run).
+- **`uv`** for anything Python: `uv add` for project deps, `uv tool install` for CLIs. This is
+  already the project rule (S9) and it needs no system packages.
+- A **container** for anything that genuinely wants a distro underneath it, so the blast radius is
+  an image rather than the host.
+- If a package really must be installed system-wide, that is a **human decision made outside the
+  session**, against vendor guidance — not something an agent does on the user's behalf.
+
+*Why: every other rule here protects data or credentials, which are recoverable. This one protects
+the machine itself, which — on a box whose whole value is that its accelerator stack works — is the
+only failure in this document that can cost days rather than minutes.*
+
+**Mechanism:** `validate-bash.sh` B0, host-gated so it is inert on an ordinary Linux box.
+`CLAUDE_APPLIANCE_HOST=yes|no` overrides detection; any other value is ignored so a typo cannot
+silently disable it. Detection is `GB[0-9]{2,3}` or `DGX Spark` in `nvidia-smi -L` (with a 2s
+timeout — a wedged driver is this hardware's characteristic failure), `/etc/nv_tegra_release`, or an
+appliance DMI/device-tree model, and is **not cached**: the verdict is re-derived per command
+because a cache file is both an off-switch the guarded agent can write and a permanent-negative
+failure mode. The decision itself tokenizes the command rather than pattern-matching it, so a flag
+between the binary and its subcommand (`apt-get -y install`) cannot slip past, and
+`git commit -m "… apt install …"` is not mistaken for the thing it describes. Environment guidance
+for these boxes lives in the `env-uv` skill.
+
 ## Decision log
 
 Irreducible judgment calls (a new egress destination, an exception to a rule above) go in

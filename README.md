@@ -17,7 +17,7 @@ advice. It makes the defaults good and the omissions visible.
 ---
 
 **Contents** — [Which one am I?](#which-one-am-i) · [Quick start](#quick-start) ·
-[What it actually does](#what-it-actually-does) ·
+[Where to read next](#where-to-read-next) · [What it actually does](#what-it-actually-does) ·
 [The security model](#the-security-model-stated-plainly) · [Reference](#reference) ·
 [Verifying the scaffold](#verifying-the-scaffold-itself) · [Contributing](#contributing)
 
@@ -58,9 +58,10 @@ to run.
 ## Quick start
 
 ```bash
-git clone https://github.com/BrendenKennedy/claude-for-ai-platforms.git
-cd /path/to/your-project
-/path/to/claude-for-ai-platforms/install.sh .    # never overwrites; safe to re-run
+git clone https://github.com/BrendenKennedy/claude-for-ai-platforms.git ~/dev/claude-for-ai-platforms
+
+mkdir my-project && cd my-project && git init    # the target must be a git repo — /setup checks
+~/dev/claude-for-ai-platforms/install.sh .       # never overwrites; safe to re-run
 ```
 
 Then, in Claude Code:
@@ -72,7 +73,21 @@ Then, in Claude Code:
 Or run the pieces yourself: `/intake` (what are we building + the security-posture interview) →
 `/bootstrap` (generate and *prove* the skeleton) → `/threat-model` → `/gate`.
 
-New to it? [`docs/TUTORIAL.md`](docs/TUTORIAL.md) is a ~30-minute first project on synthetic data.
+New to it? [`docs/TUTORIAL.md`](docs/TUTORIAL.md) is a ~40-minute first project. It asks which family
+you picked and forks — nothing is provisioned, so both paths run for real on an empty directory.
+
+### Where to read next
+
+| | |
+|---|---|
+| [`docs/TUTORIAL.md`](docs/TUTORIAL.md) | First project, hands-on. Forks by family. |
+| [`PROCESS.md`](PROCESS.md) | The phase gates `/gate` enforces — **this one installs into your project** |
+| [`docs/REFERENCE.md`](docs/REFERENCE.md) | Every skill, command, agent, and hook. Generated. |
+| [`CHANGELOG.md`](CHANGELOG.md) | What changed per release; `/upgrade` applies the delta |
+| [`CONTRIBUTING.md`](CONTRIBUTING.md) | Extending the scaffold, and the stability contract |
+
+Note that `install.sh` copies `.claude/`, `CLAUDE.md`, and `PROCESS.md` — **not** this README or
+`docs/`. Inside an installed project, `CLAUDE.md` is the index and this repo is the manual.
 
 ## What it actually does
 
@@ -145,7 +160,11 @@ SOC 2, and the EU AI Act **for orientation**, and asserts conformance to none of
 actually implemented, with evidence, lives in `control-coverage.md` — and "not evidenced" is an
 expected status there, because an overclaimed control is worse than a missing one.
 
-Full threat model: [`.claude/memory/policy/security.md`](.claude/memory/policy/security.md).
+The dev-loop security canon — secrets, egress, the agent's own identity — is
+[`.claude/memory/policy/security.md`](.claude/memory/policy/security.md) (`S1`–`S10`). Your project's
+own **threat model** — trust boundaries, STRIDE + OWASP ASI/LLM + MITRE ATLAS, every threat driven to
+a control or an accepted risk — is `.claude/memory/process/threat-model.md`, produced and refreshed
+by `/threat-model`.
 
 ## Reference
 
@@ -164,7 +183,7 @@ exactly one.
 | `identity-and-access.md` | `I1`–`I9` | Human and workload identity, authn/authz, tokens, delegated agent authority |
 | `supply-chain.md` | `C1`–`C8` | Dependencies, SBOM, signing, provenance, base images, model weights, MCP servers |
 | `reliability.md` | `R1`–`R8` | SLOs, error budgets, change safety, degradation, incidents |
-| `security.md` | `S1`–`S9` | The development loop: secrets, egress, the agent's own identity |
+| `security.md` | `S1`–`S10` | The development loop: secrets, egress, the agent's own identity, appliance-host integrity |
 | `data-governance.md` | `D1`–`D10` | Datasets, labels, licensing, PII, splits, retrieval corpora, store tenancy, encryption, tested restore |
 | `model-governance.md` | `M1`–`M16` | Reproducibility, checkpoint provenance, third-party models, prompt versioning, model cards |
 
@@ -237,9 +256,12 @@ input either blocks everything or nothing.
 ## Verifying the scaffold itself
 
 ```bash
-bash .claude/scripts/check-scaffold.sh    # drift, frontmatter, config, install, placeholders, docs
+bash .claude/scripts/check-scaffold.sh    # the scaffold's self-consistency checks
 python3 .claude/scripts/check-hooks.py    # every guard: blocks, allows, fails open
 ```
+
+Each script's header comment lists exactly what it checks — that list is the canonical one, so it
+can't drift from the code the way a copy in this README would.
 
 CI runs both. `check-scaffold.sh` fails if a skill exists on disk but isn't named in `CLAUDE.md` and
 this README, **if a skill is listed in the wrong tier here**, if a canon file isn't registered in the

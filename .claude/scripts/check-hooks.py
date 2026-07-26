@@ -18,6 +18,7 @@ Usage:  python3 .claude/scripts/check-hooks.py      (from the repo root; exits 1
 """
 
 import json
+import os
 import pathlib
 import subprocess
 import sys
@@ -27,10 +28,14 @@ H = ".claude/hooks/"
 FAILS = []
 
 
-def run(hook, payload, expect, label):
+def run(hook, payload, expect, label, env=None):
     data = payload if isinstance(payload, str) else json.dumps(payload)
+    # env: for host-conditional guards. The appliance-host apt block must be exercised in BOTH
+    # directions on ANY runner — asserting "blocks" unconditionally would pass on a DGX Spark and
+    # fail on an x86 CI box, which is a test that reports where it ran, not whether it works.
+    proc_env = {**os.environ, **env} if env else None
     p = subprocess.run(
-        [H + hook], input=data, capture_output=True, text=True, timeout=60
+        [H + hook], input=data, capture_output=True, text=True, timeout=60, env=proc_env
     )
     got = p.returncode
     ask = '"permissionDecision"' in (p.stdout or "")
@@ -310,6 +315,7 @@ run(
     "allow",
     "env-sourced key",
 )
+run("guard-secrets.py", "not json at all", "allow", "FAIL-OPEN malformed stdin")
 
 print("\n== scan-untrusted-content ==")
 
@@ -422,6 +428,143 @@ run(
 )
 run("validate-bash.sh", bash("argocd app delete api"), "ask", "argocd app delete")
 run("validate-bash.sh", bash("ls -la"), "allow", "innocuous command")
+run("validate-bash.sh", "{{{bad", "allow", "FAIL-OPEN malformed stdin")
+
+# Appliance-host apt guard (DGX Spark / GB10 / Jetson). Both directions, forced via the env
+# override, so the result is the same on a Spark and on an x86 CI runner. The literals are split
+# so this file's own text can't trip the guard when it is read or edited.
+APPLIANCE = {"CLAUDE_APPLIANCE_HOST": "yes"}
+ORDINARY = {"CLAUDE_APPLIANCE_HOST": "no"}
+for sub in ("update", "upgrade", "install ripgrep", "purge nvidia-driver-535"):
+    run(
+        "validate-bash.sh",
+        bash("sudo " + "apt " + sub),
+        "block",
+        f"appliance: apt {sub.split()[0]} blocked",
+        env=APPLIANCE,
+    )
+run(
+    "validate-bash.sh",
+    bash("sudo " + "dpkg -i x.deb"),
+    "block",
+    "appliance: dpkg -i blocked",
+    env=APPLIANCE,
+)
+run(
+    "validate-bash.sh",
+    bash("sudo " + "add-apt-repository ppa:x/y"),
+    "block",
+    "appliance: add-apt-repo blocked",
+    env=APPLIANCE,
+)
+# Read-only apt stays usable — a guard with false positives gets deleted.
+run(
+    "validate-bash.sh",
+    bash("apt " + "list --installed"),
+    "allow",
+    "appliance: read-only apt allowed",
+    env=APPLIANCE,
+)
+run(
+    "validate-bash.sh",
+    bash("apt-cache " + "search jq"),
+    "allow",
+    "appliance: apt-cache allowed",
+    env=APPLIANCE,
+)
+run(
+    "validate-bash.sh",
+    bash("uv tool install ruff"),
+    "allow",
+    "appliance: uv is the way in",
+    env=APPLIANCE,
+)
+# EVASIONS. The first version of B0 anchored the subcommand immediately after apt/apt-get, so any
+# flag in between defeated it — and every test above passed, because they were written against the
+# regex instead of against the threat. These are the forms the world actually uses.
+APT = "apt"
+APTGET = "apt-get"
+for cmd, label in [
+    (f"sudo {APTGET} -y install foo", "flag before subcommand (apt-get)"),
+    (f"sudo {APT} -y install cuda-toolkit", "flag before subcommand (apt)"),
+    (f"{APT} --yes upgrade", "long flag before subcommand"),
+    (f"{APTGET} -q -y install foo", "two flags before subcommand"),
+    # Verbatim the sequence S10 exists to prevent.
+    (
+        f"sudo {APTGET} -qq update && sudo {APTGET} -y dist-upgrade",
+        "the brick sequence",
+    ),
+    (
+        f"DEBIAN_FRONTEND=noninteractive {APTGET} -y install foo",
+        "env prefix + flag first",
+    ),
+    (f"/usr/bin/{APT} update", "absolute path"),
+    (f"/usr/bin/{APTGET} install foo", "absolute path (apt-get)"),
+    (f'bash -c "{APT} update"', "wrapped in bash -c"),
+    (f"sh -c '{APTGET} install foo'", "wrapped in sh -c"),
+    (f"$({APT} update)", "command substitution"),
+    (f"{APT} reinstall foo", "reinstall subcommand"),
+    (f"{APTGET} build-dep foo", "build-dep subcommand"),
+    ("sudo dpkg --unpack x.deb", "dpkg --unpack"),
+    ("sudo dpkg --configure -a", "dpkg --configure"),
+    ("sudo aptitude install foo", "aptitude"),
+    (f"( {APT} update )", "subshell grouping"),
+    (f"{{ {APT} update; }}", "brace grouping"),
+    # Remote targets are judged, not exempted — the far end may be an appliance too. Deliberately
+    # stricter than the container carve-out: an image's blast radius is an image.
+    (f"ssh gpu-box sudo {APT} update", "ssh to another host"),
+    (f"kubectl exec pod -- {APTGET} install curl", "kubectl exec"),
+]:
+    run("validate-bash.sh", bash(cmd), "block", f"appliance: {label}", env=APPLIANCE)
+
+# FALSE POSITIVES. A container is the remedy S10 itself recommends — blocking it is the false
+# positive most likely to get the whole rule disabled. Talking about the policy must also be free.
+for cmd, label in [
+    (f"docker run --rm ubuntu {APTGET} install -y curl", "container: docker run"),
+    (f"docker exec dev {APT} update", "container: docker exec"),
+    (f"podman run --rm ubuntu {APT} update", "container: podman"),
+    (f'git commit -m "document {APT} update policy"', "git commit message"),
+    (f'echo "never run {APT} update here"', "echo about the policy"),
+    (f"grep -r '{APT} install' docs/", "grep for the string"),
+    (f"{APT} policy nvidia-driver-535", "read-only: apt policy"),
+    ("dpkg -L cuda-toolkit", "read-only: dpkg -L"),
+    # A heredoc body is data, not commands — writing a commit message or a doc ABOUT this rule
+    # must not trip it. This one blocked the repo's own release commit before it was fixed.
+    (
+        f"git commit -F - <<'EOF'\nfix: {APTGET} -y install was not blocked\nEOF",
+        "heredoc: commit message",
+    ),
+    (
+        f"cat > notes.md <<'EOF'\nnever run {APTGET} -y install here\nEOF",
+        "heredoc: writing a doc",
+    ),
+]:
+    run("validate-bash.sh", bash(cmd), "allow", f"appliance: {label}", env=APPLIANCE)
+
+# ...but a heredoc fed to a SHELL really does execute, so that one still blocks.
+run(
+    "validate-bash.sh",
+    bash(f"bash <<'EOF'\nsudo {APTGET} -y install foo\nEOF"),
+    "block",
+    "appliance: heredoc piped to a shell still blocks",
+    env=APPLIANCE,
+)
+
+# ...and the whole rule is inert on an ordinary box.
+run(
+    "validate-bash.sh",
+    bash("sudo " + "apt " + "update"),
+    "allow",
+    "ordinary host: apt untouched",
+    env=ORDINARY,
+)
+run(
+    "validate-bash.sh",
+    bash("sudo " + "apt-get " + "-y install foo"),
+    "allow",
+    "ordinary host: evasion form also untouched",
+    env=ORDINARY,
+)
 
 print("\n== Stop hooks (loop guard) ==")
 run("run-security-tests.sh", {"stop_hook_active": True}, "allow", "loop guard honoured")

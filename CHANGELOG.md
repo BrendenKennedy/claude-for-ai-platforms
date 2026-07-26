@@ -13,6 +13,198 @@ versions follow [SemVer](https://semver.org/) per the stability contract in
 > and the stamp's commit **sha** remains the precise reference (`/upgrade`'s three-way logic
 > keys on the sha, not the number).
 
+## [1.5.1] — 2026-07-26
+
+**What the audit of 1.5.0 found.** An adversarial review of the release above — three independent
+passes, every finding reproduced against the files — turned up 23 issues, four of them in code that
+release had just shipped and one of them the exact defect the release claimed to have eliminated.
+This is the correction.
+
+### Fixed — the appliance guard missed the form the world actually uses
+
+`S10`'s block anchored the subcommand immediately after `apt`/`apt-get`. So `apt-get install -y foo`
+blocked and **`apt-get -y install foo` did not** — as did `apt --yes upgrade`, `/usr/bin/apt update`,
+`bash -c "apt update"`, `$(apt update)`, `apt reinstall`, `dpkg --unpack`, and
+**`sudo apt-get -qq update && sudo apt-get -y dist-upgrade`, which is verbatim the sequence S10
+exists to prevent.** The ten tests shipped alongside it all passed, because they were written against
+the regex instead of against the threat.
+
+The decision now **tokenizes** the command instead of pattern-matching it: strip env prefixes and
+wrappers, find the real binary, then judge the first non-flag subcommand against a read-only
+allowlist with default-deny on anything unrecognised. Knowing where a command *starts* is also what
+lets it tell `apt install` from `git commit -m "… apt install …"`.
+
+Two scope decisions, both now enforced rather than described:
+
+- **Inside a container it is allowed.** `docker run … apt-get install …` was blocked — the remedy
+  S10 itself recommends. That is the false positive most likely to get a rule disabled.
+- **Over `ssh` or `kubectl exec` it is not.** The far end may be another appliance.
+
+### Fixed — the guard had an off-switch the guarded agent could flip
+
+Detection cached its verdict in `/tmp/.claude-appliance-host.$UID`, read *before* hardware
+detection. `echo no > …` was an allowed command and permanently disabled the guard. The cache also
+never expired, so a single transient miss (driver not loaded, `nvidia-smi` not yet on `PATH`) killed
+it silently and forever, on real hardware. **The cache is gone** — detection is ~21ms and the
+pre-filter means only apt-shaped commands pay it. `nvidia-smi` now runs under `timeout 2`, because a
+wedged driver is this hardware class's characteristic failure. An unrecognised
+`CLAUDE_APPLIANCE_HOST` value now falls through to detection rather than reading as "no".
+
+### Fixed — `check-scaffold.sh` was lying, and running other people's code
+
+- **Check 1 printed `ok` after failing.** Its baseline was captured *after* the skills, commands and
+  agents loops, so 57 real failures could print and still be summarised `ok`. This is the bug 1.5.0's
+  notes claim to have fixed, in the check they name first. Checks 2 and 7/8 had never been converted
+  at all. All three now gate their summary.
+- **The scaffold-repo predicate was `[ -f install.sh ] && [ -f README.md ]`** — which any library or
+  tool project satisfies. The consequence was not only ~100 bogus failures: check 4 then **executed
+  the target project's own `install.sh`, twice.** The predicate now also requires `VERSION` and the
+  scaffold's name inside `install.sh`, and checks 1, 1b, 4, 6, 10 and 14 all route through that one
+  boolean instead of three competing ones.
+- **Check 1b keyed on `is_file()`**, so a target project's own README was checked for always-on
+  markers it has no reason to carry — one guaranteed failure in nearly every installed project.
+- **Check 14 walked a glob list**, missing `templates/memory/` entirely, and matched bare basenames,
+  so one `kustomization.yaml` row satisfied both k8s locations. It now walks with `find` and requires
+  the parent directory wherever a basename is ambiguous.
+
+An installed project now passes clean **with its own README, `install.sh` and `VERSION` present**,
+and its installer is never run.
+
+### Fixed — claims that were wrong
+
+- `docs/tutorial-model.md` said `/bootstrap` runs "a forward pass and one training step on a
+  two-sample fixture". It runs a real one-epoch train, an eval that **loads the checkpoint back**,
+  and a resume — and for the LLM fine-tuning lane it defers training proof entirely and emits
+  `train_sft.py`/`eval_golden.py`. Corrected, including the lane caveat.
+- Both tutorials said "open the file and type…" to demo a hook. `PreToolUse` fires on **Claude's**
+  tool calls, never a human's editor — the demo could not work as written. Reframed as *ask Claude
+  to make the edit*, and the point is now stated: these are guardrails on the agent.
+- `M11`'s model-card contents were wrong (slices are `M10`/`M12`; the evaluation protocol and the
+  data version were missing). The `guard-pyproject` message was quoted with its "name the fix"
+  clause cut — the clause the surrounding text then praises.
+- **`setup.md`'s own frontmatter described five stages and omitted `/threat-model`**, contradicting
+  its body and propagating into `docs/REFERENCE.md`, where check 6 kept it green.
+- `README.md` and the compliance crosswalk still scoped `security.md` to `S1`–`S9` after S10 shipped;
+  S10 had no framework mapping at all. Both fixed, and S10 now has a crosswalk row.
+- `templates/README.md` and `authoring-extensions.md` both overstated what a check enforces.
+- `PROCESS.md` §2.1's P2-platform cell claimed trust boundaries, which are P3's — as the same table
+  said one row down.
+
+### Known and deliberate
+
+`snap install` is not blocked. S10 is scoped to the apt/dpkg-managed OS image; snaps are contained
+and don't touch the pinned driver/kernel set the same way. Noted rather than silently omitted.
+
+## [1.5.0] — 2026-07-26
+
+**The documentation audit.** v1.4.0 renamed the scaffold and merged two families into one repo. That
+landed correctly at the root — `README.md` and `CLAUDE.md` had accurate counts, correct tiers, and
+coherent two-family framing. Every layer below root still spoke as the pre-merge data-science
+scaffold. The word "family" appeared 6× at root and **0× in any supporting doc**.
+
+This release fixes what was wrong, and — the part that matters more — adds the checks that would
+have caught it. Every finding below was verified against the files, not inferred.
+
+### Fixed — statements a reader would have acted on
+
+- **`README.md` said "CI runs both" and CI ran one.** `check-hooks.py` — 85 behavioural cases
+  including the fail-open tier — was invoked by no workflow. It runs in CI now.
+- **Two hooks had no fail-open case** (`guard-secrets.py`, `validate-bash.sh`) while `README.md`,
+  `CLAUDE.md` and `settings.json` all asserted every hook did. Both pass; they were correct, just
+  untested. Coverage counted in claims is not coverage.
+- **The agent-preload rule was unsatisfiable.** v1.4.0 gated every domain skill, so "preload only
+  ALWAYS-ON skills" made 9 of 10 real preloads illegal. Re-derived on the axis the rule was actually
+  about — interchangeability: never a **tool**-gated skill (one of a swappable pair is the wrong one
+  half the time), a **lane**-gated one only while it is `"on"`.
+- `google-sre.md` cited `templates/postmortem.md` as `R8`'s enforcing mechanism. No such file.
+- `architecture-skills-vs-agents.md` claimed `ml-engineer` preloads skills (it has no `skills:`
+  line) and pinned `skillListingBudgetFraction` at `0.02` (it is `0.03`). The literal is **deleted**
+  rather than corrected — it drifted three times in eight days, and `settings.json` already carries
+  the value with its reasoning.
+- `SessionStart` was missing from the hook-event documentation while being wired **with** a matcher,
+  which the stated rule implied was impossible.
+- `README.md` and `settings.json` both labelled `policy/security.md` "the full threat model"; it is
+  the dev-loop canon. The project threat model is `memory/process/threat-model.md`.
+- **14 "this fork" / "the parent scaffold" references** described a fork reversed on 2026-07-26.
+  `decision-log.md` and `sessions/` keep theirs — those are dated records, accurate as written.
+
+### Fixed — `docs/REFERENCE.md` was doubly broken
+
+Advertised as "generated from source, so it can't drift", and it hadn't drifted — it was wrong at
+birth. 10 of 13 hook rows had an **empty** "Does" column because `hook_line()` only read `#`
+comments and every Python hook uses a docstring; and the unescaped `Edit|Write` matcher added a
+fourth cell to a three-column table, so what did render landed in the wrong column. Both fixed. The
+chassis is now **derived** from `settings.json` rather than hardcoded, which also removes the empty
+`## Skills — workflow (always on)` section advertising a tier v1.4.0 abolished.
+
+### Changed — the new-user path
+
+- **The installed-project blind spot.** `install.sh` copies `.claude/`, `CLAUDE.md` and `PROCESS.md`
+  — not the README, not `docs/` — so its closing echo is the only onboarding an installed project
+  ever sees, and it was pre-1.4.0 on three counts. Corrected, plus a stanza naming what shipped,
+  what didn't, and that **`build-reference.py` works in an installed project**, generating an index
+  from that project's own `skillOverrides`. Nothing had ever said so. `intake.md`'s closing report
+  carried the same two defects and is read on every intake rather than once.
+- **`/bootstrap`'s description** enumerated only the model archetypes while §3h generates `deploy/`,
+  `policies/`, `observability/` and `evals/` — telling platform users the command wasn't for them,
+  in the command list, the routing surface, and the generated reference simultaneously.
+- **The tutorial forks by family.** It claimed "~30 minutes on synthetic data" and was a 40-minute
+  platform walkthrough with none; `README.md` sent Model-family users into Kustomize and `/redteam`.
+  Now `TUTORIAL.md` (chooser + shared setup) → `tutorial-platform.md` (existing content) and
+  **`tutorial-model.md`** (new, mirroring its structure so the two are diffable).
+- **`README.md` gains a "Where to read next" table**, carrying the single most-missing link in the
+  repo: `PROCESS.md` — 646 lines governing every phase gate, installed into every project,
+  previously unreachable from the front door.
+- **`PROCESS.md` is retitled for both families**, gains **§2.1** mapping the data-science phase names
+  onto platform work, and names Appendix A's family. Phase names stay — every skill cross-references
+  them by number and name, and `decision-log.md` records that decision. Its own version goes to
+  **1.1.0**; it had read 1.0.0 since a 1.4.0 rewrite, violating its own Part V rule 4.
+- **Three indexes had drifted**: `templates/README.md` documented 6 of 20 files (all 14 missing were
+  the platform half), `memory/README.md` omitted `incidents/` and `scaffold-journal.md`,
+  `scripts/README.md` named none of its three real scripts and listed three hypothetical ones. All
+  completed. `memory/`'s overlap with `CLAUDE.md` is now labelled deliberate so a future audit
+  doesn't "fix" it.
+
+### Added — the checks, so this audit doesn't need repeating
+
+The drift found here was precisely the drift no check reached. Each new check was verified to **fail
+on a broken fixture**, not merely to pass:
+
+- **10. CI** — every `check-*` script in `.claude/scripts/` is actually invoked by CI.
+- **11. HOOK COVERAGE** — every hook has cases in `check-hooks.py` **and** a fail-open case,
+  AST-parsed rather than grepped.
+- **13b. PROCESS** — `PROCESS.md`'s header version matches its own newest changelog entry.
+- **12. MECHANISMS** — every file a framework doc names in "How it lands here" exists
+  (`frameworks/README.md`'s own rule 3, previously unenforced).
+- **13. REF NOTES** — every `memory/reference/` note is registered in `CLAUDE.md`. `/upgrade`'s
+  companion `remote-gpu-workflow.md` had been orphaned for five releases.
+- **14. INDEXES** — `templates/`, `scripts/`, `memory/` and `docs/` each name every file they hold.
+- **Extended**: check 1's drift loop now covers hooks and scripts (previously unchecked against the
+  docs entirely); check 3 validates agent `skills:` preloads and shebang/executable agreement, and
+  `skillOverrides` `"off"` entries must resolve (it tested `"on"` only).
+
+Also: **checks 1, 2b and 3 printed `ok` after failing.** The verdict was right — the counter was
+correct — but the per-line output lied, and `CONTRIBUTING.md` documents this as a local command
+where a human reads lines rather than exit codes. A verifier that lies about one line is a verifier
+people stop reading. Check 6 now also separates "the generator crashed" from "the file is stale".
+
+### Fixed — `check-scaffold.sh` had never worked in an installed project
+
+Found while verifying the new `install.sh` text, which tells you to run it there. Checks 1, 1b and 4
+require `README.md` and `install.sh` — **neither of which ships** — so the suite reported ~90
+failures in a perfectly healthy installed project and was, in practice, unrunnable outside this repo.
+Every one of those failures was the check being in the wrong place, not the project being wrong.
+
+Those three checks are now gated on the scaffold repo (recognizable by `install.sh` at the root, the
+idiom check 6 already used); everything that validates the `.claude/` tree itself — wiring, hooks,
+frontmatter, preloads, citations, canon registration, indexes — runs in both. An installed project
+now passes clean, which is what makes "verify any time" an instruction rather than a claim.
+
+### Note for installed projects
+
+`/upgrade` brings the new checks with it. If `check-scaffold.sh` starts failing on an index or a
+preload after upgrading, that is the check working — the fix is in the message.
+
 ## [1.4.0] — 2026-07-26
 
 **One scaffold, two families.** The AI-platform security work was built as a fork and was about to

@@ -59,6 +59,11 @@ you want the same policy over Terraform plans and manifests (`conftest`).
 
 ## Kyverno patterns
 
+> **Start from the shipped baseline.** `.claude/templates/policies/kyverno-baseline.yaml` carries the
+> cluster policies this scaffold's canon requires (`policy/platform-security.md`) already written —
+> copy it into the project's `policies/` and adjust, rather than authoring from scratch. The
+> `conftest` equivalent for CI is `templates/policies/conftest/platform.rego`.
+
 **Validate** — the workhorse. Note `validationFailureAction: Audit` first; see rollout below.
 
 ```yaml

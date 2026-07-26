@@ -1,5 +1,5 @@
 {
-  "_comment": "Project-shared Claude Code settings. Personal/local overrides go in settings.local.json (gitignored). Replace the example permissions below with the tools your project actually uses; keep the deny list as a safety floor. Full threat model: .claude/memory/policy/security.md.",
+  "_comment": "Project-shared Claude Code settings. Personal/local overrides go in settings.local.json (gitignored). Replace the example permissions below with the tools your project actually uses; keep the deny list as a safety floor. Security canon governing this file: .claude/memory/policy/security.md (S8 in particular — self-widening).",
   "permissions": {
     "allow": [
       "Bash(git status:*)",

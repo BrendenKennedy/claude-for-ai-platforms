@@ -25,7 +25,7 @@ description: >
 > local services (a real MLflow server, Postgres, Label Studio). The reproducibility rules are
 > the repo's usual ones at image altitude: pin what you build from, build from the lockfile,
 > and keep data/secrets out of layers. **Compose is for local support services; running images
-> in production is `kubernetes`** — this fork un-parked orchestration (see
+> in production is `kubernetes`** — v1.0.0 un-parked orchestration (see
 > `memory/process/decision-log.md`). Image *security* obligations are canon
 > (`policy/supply-chain.md` `C5`, `policy/platform-security.md` `P4`); scanning, SBOM, and
 > signing are `supply-chain-security`.
