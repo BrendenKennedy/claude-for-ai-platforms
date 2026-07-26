@@ -5,8 +5,10 @@ These are not scaffold config — they're starter files for the *project being s
 §3d for the rows every project gets, §3h for the platform lanes. A few are consumed on demand by a
 skill or a canon rule instead — those are called out below.
 
-`check-scaffold.sh` asserts every file in this directory appears in a table here. An undocumented
-template is one `/bootstrap` will never reach for.
+`check-scaffold.sh` check 14 walks this directory with `find` and asserts every file is named
+somewhere in this README — including anything added under a new subdirectory. Where two files share
+a basename (both `kustomization.yaml`s), it requires the parent directory too, so one row can't
+satisfy both. An undocumented template is one `/bootstrap` will never reach for.
 
 ### Every project (`/bootstrap` §3d)
 

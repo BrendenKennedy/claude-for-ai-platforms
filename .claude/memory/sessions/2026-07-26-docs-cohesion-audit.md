@@ -59,6 +59,32 @@ an installed project — checks 1, 1b and 4 require `README.md` and `install.sh`
 ships, so it reported ~90 failures on a healthy project. Now gated on the scaffold repo; an installed
 project passes clean.
 
+## Post-release audit (v1.5.1)
+
+The user asked for a full audit of the above. Three adversarial passes plus my own reproduction found
+**23 issues — four in code this session had just shipped, and one was the exact defect the session
+existed to eliminate.** Worth recording honestly, because the pattern is the lesson:
+
+- **The apt guard missed `apt-get -y install`.** The regex anchored the subcommand adjacent to the
+  binary. My 10 tests all passed because I wrote them against my regex instead of against the threat.
+  `sudo apt-get -qq update && sudo apt-get -y dist-upgrade` — the literal brick sequence S10 exists
+  to stop — walked through. Rewritten to tokenize; 30 cases now, written threat-first and failing
+  before the fix.
+- **The guard had an off-switch the guarded agent could flip.** `echo no > /tmp/.claude-appliance-host.$UID`
+  was allowed and permanently disabled it. Cache deleted.
+- **check-scaffold check 1 still printed `ok` after failing** — baseline captured after the loops.
+  The v1.5.0 commit message claims this was fixed. Checks 2 and 7/8 were never converted.
+- **check-scaffold executed a target project's `install.sh`, twice**, because the scaffold-repo
+  predicate was `install.sh + README.md`.
+- **`docs/tutorial-model.md` — my own new file — described a bootstrap step that doesn't exist**,
+  and was flatly wrong for the LLM lane.
+
+**The lesson, recorded because it will recur:** every one of these came from writing a plausible
+claim and then testing that the claim was self-consistent, rather than testing it against the thing
+it describes. A test written after the implementation tests the implementation. The three that
+escaped an entire session of "verify everything" were the three where I was the author *and* the
+verifier.
+
 ## Follow-ups
 - `ml-engineer` and `platform-engineer` carry no `skills:` preload — is that right? Deliberately not
   decided here; adding one to make a doc sentence true would be the tail wagging the dog. → roadmap

@@ -62,8 +62,9 @@ The rules that apply to essentially every change (fuller policy via the `governa
 - **Never `apt` on a vendor-managed appliance box** (DGX Spark · GB10/Grace-Blackwell · Jetson).
   The OS image is a tested set — `apt update` re-points the indexes and the next upgrade walks the
   driver/CUDA/kernel off it, and recovery is a **re-image, not a rollback**. Use a static `aarch64`
-  binary in `~/.local/bin`, `uv` for anything Python, or a container. Read-only `apt list`/`show` is
-  fine. `validate-bash.sh` B0 enforces this, host-gated and inert elsewhere (`security.md` `S10`).
+  binary in `~/.local/bin`, `uv` for anything Python, or a container — `apt` *inside* an image is
+  fine and allowed; over `ssh` it isn't. Read-only `apt list`/`show`/`policy` is fine.
+  `validate-bash.sh` B0 enforces this, host-gated and inert elsewhere (`security.md` `S10`).
 - **Don't hand-format** — the ruff hooks own style. Bite: `ruff check --fix` runs after *every*
   Edit/Write, so write an import and its usage in the **same** edit or F401 deletes it between.
 - **Terse working output** — status updates and findings, not narration; every reply becomes

@@ -83,7 +83,7 @@ The phase names come from the data-science lineage in Part I and are deliberatel
 
 | Phase | On a model project | On a platform project |
 |---|---|---|
-| **P2** Data Discovery | sources, splits, label quality, class balance | corpora and retrieval sources, model providers, where data crosses a **trust boundary** |
+| **P2** Data Discovery | sources, splits, label quality, class balance | the retrieval corpus — its sources, licensing, and integrity (`D7`) |
 | **P3** Data Architecture | storage layout, immutability, the data pipeline | system architecture **and its trust boundaries** — this is the input `/threat-model` consumes |
 | **P4** Feature Engineering | features, leakage discipline, the feature dictionary | controls, policy-as-code, pipeline hardening — the mechanisms that make P3's threats decided rather than noted |
 | **P5** Modeling & Evaluation | train, tune, compare against a baseline | agent/system evaluation — trajectories, judges, and a **recorded adversarial run** |

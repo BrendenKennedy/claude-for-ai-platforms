@@ -51,16 +51,28 @@ fail() { printf 'FAIL  %s\n' "$1"; fails=$((fails + 1)); }
 ok()   { printf 'ok    %s\n' "$1"; }
 
 # ---- 1. DRIFT: disk -> docs -------------------------------------------------
-# CLAUDE.md ships into every project; README.md does NOT (install.sh copies .claude/, CLAUDE.md and
-# PROCESS.md only). So the README half runs in the scaffold repo only — recognizable by install.sh
-# at the root, the same idiom check 6 uses. Without this the whole suite reported ~90 failures in a
-# perfectly healthy installed project, which is why nobody could run it there.
+# CLAUDE.md ships into every project; README.md and docs/ do NOT (install.sh copies .claude/,
+# CLAUDE.md and PROCESS.md only). So README-dependent checks run in the SCAFFOLD REPO only.
+#
+# The predicate has to identify THIS repo, not "a repo shaped like it". The first version was
+# `[ -f install.sh ] && [ -f README.md ]`, which any library or tool project satisfies — and the
+# consequence was not just ~100 bogus failures: check 4 then executed the TARGET project's own
+# install.sh, twice. A self-consistency checker must never run arbitrary code it found lying around.
+# Single predicate, used by checks 1, 1b, 4, 6, 10 and 14 — there were three competing ones before.
 in_scaffold_repo=false
-[ -f install.sh ] && [ -f README.md ] && in_scaffold_repo=true
+if [ -f install.sh ] && [ -f README.md ] && [ -f VERSION ] &&
+   grep -q 'claude-for-ai-platforms' install.sh 2>/dev/null; then
+  in_scaffold_repo=true
+fi
+export SCAFFOLD_REPO="$in_scaffold_repo"   # visible to the embedded python3 blocks
 readme_drift() { # $1 = kind, $2 = name, $3 = grep needle
   $in_scaffold_repo || return 0
   grep -q "$3" README.md || fail "$1 '$2' exists on disk but is not in README.md"
 }
+# Baseline BEFORE the first loop. It sat after the skills/commands/agents loops, so the gate below
+# only covered hooks and scripts: 57 real failures could print and still be summarised `ok`. That
+# is the exact bug this check-suite's own release notes claimed to have fixed.
+drift_before=$fails
 for dir in .claude/skills/*/; do
   name="$(basename "$dir")"
   [ "$name" = "_example" ] && continue
@@ -83,7 +95,6 @@ done
 # was (check 3). A hook could ship documented nowhere and CI stayed green. Matched on the STEM,
 # because the docs name hooks both ways (`session-orient` in README's list, `session-orient.py`
 # in CLAUDE.md's table) and both are legitimate.
-drift_before=$fails
 for f in .claude/hooks/*.sh .claude/hooks/*.py; do
   [ -f "$f" ] || continue
   name="$(basename "$f")"; stem="${name%.*}"
@@ -106,7 +117,7 @@ fi
 # misstates what you pay context for is worse than one that omits it.
 # Source of truth: a skill is always-on iff it is NOT a key in settings.json's skillOverrides.
 python3 - <<'PY'
-import json, pathlib, re, sys
+import json, os, pathlib, re, sys
 
 settings = json.loads(pathlib.Path(".claude/settings.json").read_text())
 gated = set(settings.get("skillOverrides", {}))
@@ -114,8 +125,12 @@ on_disk = {p.parent.name for p in pathlib.Path(".claude/skills").glob("*/SKILL.m
 always_on = on_disk - gated
 
 problems = []
-# README.md is the scaffold repo's own and doesn't ship; CLAUDE.md does. Check whichever exist.
-docs = [d for d in ("README.md", "CLAUDE.md") if pathlib.Path(d).is_file()]
+# CLAUDE.md ships; README.md is the scaffold repo's own. Keying on is_file() meant a target
+# project's *own* README was checked for the always-on markers it has no reason to carry — one
+# guaranteed failure in every installed project with a README, which is nearly all of them.
+docs = ["CLAUDE.md"]
+if os.environ.get("SCAFFOLD_REPO") == "true":
+    docs.insert(0, "README.md")
 for doc in docs:
     text = pathlib.Path(doc).read_text()
     # Explicit markers, not a prose regex. The first version of this check scanned from the phrase
@@ -147,6 +162,7 @@ else
 fi
 
 # ---- 2. FRONTMATTER ---------------------------------------------------------
+fm_before=$fails
 for f in .claude/skills/*/SKILL.md; do
   dir_name="$(basename "$(dirname "$f")")"
   [ "$dir_name" = "_example" ] && continue
@@ -160,7 +176,8 @@ for f in .claude/agents/*.md; do
   grep -q '^name:' "$f"        || fail "$f has no name: frontmatter"
   grep -q '^description:' "$f" || fail "$f has no description: (agents dispatch by description)"
 done
-ok "frontmatter: every skill/agent has name + description; skill names match their dirs"
+[ "$fails" -eq "$fm_before" ] &&
+  ok "frontmatter: every skill/agent has name + description; skill names match their dirs"
 
 # ---- 2b. VALIDITY: YAML + budgets + delisting -------------------------------
 # Invalid frontmatter shipped twice in this repo's history (see CHANGELOG 0.10.0) while check 2's
@@ -335,7 +352,7 @@ if [ -f docs/REFERENCE.md ]; then
   else
     ok "reference: docs/REFERENCE.md matches the frontmatter (regenerated + diffed)"
   fi
-elif [ -f install.sh ]; then
+elif $in_scaffold_repo; then
   fail "docs/REFERENCE.md missing — generate: python3 .claude/scripts/build-reference.py"
 fi
 
@@ -346,7 +363,7 @@ fi
 #   - a canon rule citing a framework control id that resolves to nothing. This fork lets canon cite
 #     ids ([LLM01], [CIS 5.2]) with the framework text living in policy/frameworks/ — that only
 #     works if the citation actually lands somewhere.
-python3 - <<'PY' || fails=$((fails + 1))
+python3 - <<'PY'
 import re, sys
 from pathlib import Path
 
@@ -412,7 +429,11 @@ if frameworks.is_dir():
 
 sys.exit(1 if bad else 0)
 PY
-ok "governance: every canon file is registered; framework docs indexed; canon citations resolve"
+if [ $? -eq 0 ]; then
+  ok "governance: every canon file is registered; framework docs indexed; canon citations resolve"
+else
+  fail "governance: a canon file is unregistered or a framework citation resolves to nothing (see above)"
+fi
 
 # ---- 9. CITATIONS + SHIPPED TEMPLATES ---------------------------------------
 # 9a. Canon rule ids cited in skills/agents/commands must resolve to a rule that exists.
@@ -484,7 +505,7 @@ fi
 # The README told readers "CI runs both" while check-hooks.py was invoked by nothing. A claim
 # about what CI runs is checkable, so check it. Installed projects get their own ci.yml from
 # templates/project-ci.yml, which correctly does NOT run these — hence the install.sh guard.
-if [ -f install.sh ] && [ -f .github/workflows/ci.yml ]; then
+if $in_scaffold_repo && [ -f .github/workflows/ci.yml ]; then
   ci_before=$fails
   for f in .claude/scripts/check-*.sh .claude/scripts/check-*.py; do
     [ -f "$f" ] || continue
@@ -611,21 +632,33 @@ fi
 # Same shape as check 8a (framework docs must be in the lineage table) — the index is the map, and
 # a map missing two thirds of the territory is worse than none.
 idx_before=$fails
-idx() { # $1 = index file, $2... = files that must be named in it
-  local index="$1"; shift
-  [ -f "$index" ] || return 0
-  for f in "$@"; do
-    [ -f "$f" ] || continue
-    grep -qF "$(basename "$f")" "$index" \
-      || fail "$f is not named in $index — an unindexed file is one nobody finds"
-  done
+# Match on the file's own name, but require the PARENT DIRECTORY too when the basename is ambiguous
+# — `k8s/base/kustomization.yaml` and `k8s/overlays/prod/kustomization.yaml` share a basename, so a
+# bare-basename grep let one row satisfy both.
+idx_tree() { # $1 = index file, $2 = directory to walk in full
+  local index="$1" dir="$2" f base parent dupes
+  [ -f "$index" ] && [ -d "$dir" ] || return 0
+  # Basenames that occur more than once ANYWHERE in this tree must be indexed with their parent
+  # directory, or one row satisfies both files. Scoped to the whole tree, not the neighbourhood:
+  # k8s/base/kustomization.yaml and k8s/overlays/prod/kustomization.yaml are four levels apart.
+  dupes="$(find "$dir" -type f ! -name '*.py[co]' ! -path '*/__pycache__/*' -printf '%f\n' \
+           2>/dev/null | sort | uniq -d)"
+  while IFS= read -r f; do
+    [ "$f" = "$index" ] && continue          # an index needn't list itself
+    base="$(basename "$f")"; parent="$(basename "$(dirname "$f")")"
+    if printf '%s\n' "$dupes" | grep -qxF "$base"; then
+      grep -qF "$parent/$base" "$index" \
+        || fail "$f is not named in $index (basename is ambiguous — index it as $parent/$base)"
+    else
+      grep -qF "$base" "$index" \
+        || fail "$f is not named in $index — an unindexed file is one nobody finds"
+    fi
+  done < <(find "$dir" -type f ! -name '*.py[co]' ! -path '*/__pycache__/*' | sort)
 }
-idx .claude/templates/README.md \
-    .claude/templates/*.yaml .claude/templates/*.yml .claude/templates/*.json \
-    .claude/templates/*.example .claude/templates/*.md \
-    .claude/templates/k8s/base/* .claude/templates/k8s/overlays/prod/* \
-    .claude/templates/policies/* .claude/templates/policies/conftest/*
-idx .claude/scripts/README.md .claude/scripts/*.sh .claude/scripts/*.py
+# find, not a glob list: the glob version silently missed templates/memory/ entirely, which is a
+# live directory install.sh seeds from.
+idx_tree .claude/templates/README.md .claude/templates
+idx_tree .claude/scripts/README.md .claude/scripts
 # memory/: the immediate children, which is what its Layout table covers.
 for p in .claude/memory/*; do
   name="$(basename "$p")"
@@ -634,8 +667,8 @@ for p in .claude/memory/*; do
     || fail ".claude/memory/$name is not in memory/README.md's Layout table"
 done
 # docs/ is the scaffold repo's own and isn't shipped — same guard idiom as check 6.
-if [ -f install.sh ] && [ -f docs/README.md ]; then
-  idx docs/README.md docs/*.md
+if $in_scaffold_repo && [ -f docs/README.md ]; then
+  idx_tree docs/README.md docs
 fi
 [ "$fails" -eq "$idx_before" ] && ok "indexes: templates/, scripts/, memory/ and docs/ each name every file they hold"
 

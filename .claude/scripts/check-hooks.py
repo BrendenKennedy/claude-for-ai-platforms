@@ -479,12 +479,90 @@ run(
     "appliance: uv is the way in",
     env=APPLIANCE,
 )
+# EVASIONS. The first version of B0 anchored the subcommand immediately after apt/apt-get, so any
+# flag in between defeated it — and every test above passed, because they were written against the
+# regex instead of against the threat. These are the forms the world actually uses.
+APT = "apt"
+APTGET = "apt-get"
+for cmd, label in [
+    (f"sudo {APTGET} -y install foo", "flag before subcommand (apt-get)"),
+    (f"sudo {APT} -y install cuda-toolkit", "flag before subcommand (apt)"),
+    (f"{APT} --yes upgrade", "long flag before subcommand"),
+    (f"{APTGET} -q -y install foo", "two flags before subcommand"),
+    # Verbatim the sequence S10 exists to prevent.
+    (
+        f"sudo {APTGET} -qq update && sudo {APTGET} -y dist-upgrade",
+        "the brick sequence",
+    ),
+    (
+        f"DEBIAN_FRONTEND=noninteractive {APTGET} -y install foo",
+        "env prefix + flag first",
+    ),
+    (f"/usr/bin/{APT} update", "absolute path"),
+    (f"/usr/bin/{APTGET} install foo", "absolute path (apt-get)"),
+    (f'bash -c "{APT} update"', "wrapped in bash -c"),
+    (f"sh -c '{APTGET} install foo'", "wrapped in sh -c"),
+    (f"$({APT} update)", "command substitution"),
+    (f"{APT} reinstall foo", "reinstall subcommand"),
+    (f"{APTGET} build-dep foo", "build-dep subcommand"),
+    ("sudo dpkg --unpack x.deb", "dpkg --unpack"),
+    ("sudo dpkg --configure -a", "dpkg --configure"),
+    ("sudo aptitude install foo", "aptitude"),
+    (f"( {APT} update )", "subshell grouping"),
+    (f"{{ {APT} update; }}", "brace grouping"),
+    # Remote targets are judged, not exempted — the far end may be an appliance too. Deliberately
+    # stricter than the container carve-out: an image's blast radius is an image.
+    (f"ssh gpu-box sudo {APT} update", "ssh to another host"),
+    (f"kubectl exec pod -- {APTGET} install curl", "kubectl exec"),
+]:
+    run("validate-bash.sh", bash(cmd), "block", f"appliance: {label}", env=APPLIANCE)
+
+# FALSE POSITIVES. A container is the remedy S10 itself recommends — blocking it is the false
+# positive most likely to get the whole rule disabled. Talking about the policy must also be free.
+for cmd, label in [
+    (f"docker run --rm ubuntu {APTGET} install -y curl", "container: docker run"),
+    (f"docker exec dev {APT} update", "container: docker exec"),
+    (f"podman run --rm ubuntu {APT} update", "container: podman"),
+    (f'git commit -m "document {APT} update policy"', "git commit message"),
+    (f'echo "never run {APT} update here"', "echo about the policy"),
+    (f"grep -r '{APT} install' docs/", "grep for the string"),
+    (f"{APT} policy nvidia-driver-535", "read-only: apt policy"),
+    ("dpkg -L cuda-toolkit", "read-only: dpkg -L"),
+    # A heredoc body is data, not commands — writing a commit message or a doc ABOUT this rule
+    # must not trip it. This one blocked the repo's own release commit before it was fixed.
+    (
+        f"git commit -F - <<'EOF'\nfix: {APTGET} -y install was not blocked\nEOF",
+        "heredoc: commit message",
+    ),
+    (
+        f"cat > notes.md <<'EOF'\nnever run {APTGET} -y install here\nEOF",
+        "heredoc: writing a doc",
+    ),
+]:
+    run("validate-bash.sh", bash(cmd), "allow", f"appliance: {label}", env=APPLIANCE)
+
+# ...but a heredoc fed to a SHELL really does execute, so that one still blocks.
+run(
+    "validate-bash.sh",
+    bash(f"bash <<'EOF'\nsudo {APTGET} -y install foo\nEOF"),
+    "block",
+    "appliance: heredoc piped to a shell still blocks",
+    env=APPLIANCE,
+)
+
 # ...and the whole rule is inert on an ordinary box.
 run(
     "validate-bash.sh",
     bash("sudo " + "apt " + "update"),
     "allow",
     "ordinary host: apt untouched",
+    env=ORDINARY,
+)
+run(
+    "validate-bash.sh",
+    bash("sudo " + "apt-get " + "-y install foo"),
+    "allow",
+    "ordinary host: evasion form also untouched",
     env=ORDINARY,
 )
 

@@ -1,28 +1,41 @@
 # Tutorial — the Model path
 
 Continues from [`TUTORIAL.md`](TUTORIAL.md), which covers install and `/setup`. You should have a
-`conf/` tree, `train.py` and `eval.py` that run on a tiny fixture, and a passed P1 gate.
+`conf/` tree, entry points, and a passed P1 gate. Exactly which entry points depends on your lane —
+`train.py`/`eval.py` for CV, tabular and time-series; `train_sft.py`/`eval_golden.py` for an LLM
+fine-tune.
 
 One thing worth checking before you go on: `/bootstrap` didn't just write those files, it **ran**
-them — a forward pass and one training step on a two-sample fixture. Code that has never executed is
-a guess about what will happen, and the whole point of proving the skeleton is that every later
-"it should work" starts from something that did.
+them (§5, "Prove it runs"). For most lanes that means a real one-epoch train on CPU against
+synthetic data, then **loading the checkpoint back** for eval, then a **resume** from `last.pt` —
+because the train path never exercises `torch.load`, and reading a checkpoint back is where the
+failures actually live. A skeleton whose checkpoints can't be read is not a working skeleton.
+
+The **LLM fine-tuning lane is the exception, deliberately**: `/bootstrap` proves the data path only
+(prep round-trips a synthetic jsonl, decontamination catches a planted duplicate, the golden harness
+dry-runs against a stub scorer) and **defers training proof to your first real run** rather than
+simulating one. If that's your lane, expect §7 of the bootstrap report to say so loudly.
 
 ## 1. Watch a hook refuse you
 
 Two guards fire on an empty project, so you can see the pattern before you've built anything.
 
-Add a dependency by hand — open `pyproject.toml` and type a line into `[project.dependencies]`:
+These are `PreToolUse` hooks: they gate **Claude's** edits, not yours. Editing a file in your own
+editor bypasses them entirely — which is the point, they're guardrails on the agent. So to see one,
+*ask Claude to make the change.*
+
+Ask it to add `pandas>=2.0` to `pyproject.toml` directly, rather than via `uv add`:
 
 ```
-[guard-pyproject] Blocked: this Edit touches a dependency entry.
+[guard-pyproject] Blocked: this Edit touches a dependency entry. Use `uv add <pkg>` /
+`uv remove <pkg>` so uv.lock stays in sync — never hand-edit dependencies (always-on convention).
 ```
 
 Deps go through `uv add`, which resolves and writes `uv.lock` in the same motion. A hand-edited
 `pyproject.toml` and a stale lockfile is how "works on my machine" is manufactured, and the guard
 exists because the failure surfaces weeks later on someone else's box.
 
-Now save a notebook with its outputs intact:
+Now ask it to write a notebook with cell outputs still in it:
 
 ```
 [guard-notebook-outputs] Blocked: this .ipynb write carries cell outputs / execution counts.
@@ -105,10 +118,10 @@ config, every figure is regenerable from a script, and anything it can't back be
 
 Two disciplines it will hold you to. **Uncertainty on every reported number** (`statistics`): three
 seeds and a mean ± sd is the cheapest honest interval, and a difference smaller than seed noise is
-not a result. And **`M11` — every released model ships a model card**: intended use, out-of-scope
-use, training data, metrics with their slices, and the failure modes. `M10` asks for where it's
-wrong, not just the averages, because the averages are the part that doesn't help anyone decide
-whether to trust it.
+not a result. And **`M11` — every released model ships a model card**: intended use and
+out-of-scope use, the training data **and its version**, eval metrics **with the evaluation
+protocol**, and limitations. Alongside it, `M10` asks for the failure modes rather than just the
+averages, because the averages are the part that doesn't help anyone decide whether to trust it.
 
 ## 6. Keep it current
 

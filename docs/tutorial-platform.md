@@ -9,8 +9,9 @@ policy suite whose bad fixture passes is enforcing nothing, and that check is th
 
 ## 1. Watch a hook refuse you
 
-Open `deploy/base/deployment.yaml` and try to relax it — set `runAsNonRoot: false`, or change the
-digest-pinned image to a `:latest` tag. The write is blocked:
+This is a `PreToolUse` hook: it gates **Claude's** edits, not yours — editing in your own editor
+bypasses it, which is the point. So ask Claude to relax `deploy/base/deployment.yaml`: set
+`runAsNonRoot: false`, or change the digest-pinned image to a `:latest` tag. The write is blocked:
 
 ```
 [guard-k8s-manifests] Blocked deploy/base/deployment.yaml — platform-security canon violation:

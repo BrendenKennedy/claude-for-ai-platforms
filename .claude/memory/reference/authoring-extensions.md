@@ -106,7 +106,8 @@ tools: Read, Grep, Glob   # least-privilege — list only what it needs; omit to
     an agent that exists for that lane (`sre-analyst` → `reliability-sre, observability`;
     `threat-modeler` → `threat-modeling`). A lane skill has no sibling: it is on, or the agent
     depending on it should not be dispatched — say so in the agent's body. `check-scaffold.sh`
-    enforces this.
+    check 3 enforces the mechanical half — the skill must exist and must not be `"off"`. The
+    tool-gated ban and "is this agent actually for that lane" are review, not check.
 
   Any "consult skill X" line in an agent body must resolve to one of those two mechanics, or it's a
   dead reference.

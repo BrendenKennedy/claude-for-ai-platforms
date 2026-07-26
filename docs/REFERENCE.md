@@ -87,7 +87,7 @@
 | [`/review`](../.claude/commands/review.md) | Review the current diff by dispatching the code-reviewer agent (correctness + the ML/CV lens) |
 | [`/scaffold-retro`](../.claude/commands/scaffold-retro.md) | Assess how the `.claude/` scaffold itself is performing — read the scaffold journal, cluster recurring friction/wins/gaps into themes, and with the user promote the… |
 | [`/sec-review`](../.claude/commands/sec-review.md) | Review the current diff through the AI-platform security lens — agent tool grants, injection paths, manifests, IAM/RBAC, token validation, secrets, supply-chain pinning… |
-| [`/setup`](../.claude/commands/setup.md) | Full one-time project setup in one guided session — git preflight, then /intake (definition + stack) → checkpoint commit → /bootstrap (skeleton, proven) → checkpoint… |
+| [`/setup`](../.claude/commands/setup.md) | Full one-time project setup in one guided session — git preflight, then /intake (definition + security posture + stack) → /bootstrap (skeleton, proven) → /threat-model… |
 | [`/skill-update`](../.claude/commands/skill-update.md) | Sync a tool skill to the version the project actually runs — compare its **Pinned:** line against the locked dependency, research what changed between those versions,… |
 | [`/slo`](../.claude/commands/slo.md) | Define or review service level objectives — pick SLIs users actually feel, set targets with a window and an agreed consequence, and record them in the SLO register. |
 | [`/threat-model`](../.claude/commands/threat-model.md) | Build or refresh the project's threat model — map trust boundaries, enumerate threats against STRIDE + OWASP ASI/LLM + MITRE ATLAS, and drive every one to a decision. |

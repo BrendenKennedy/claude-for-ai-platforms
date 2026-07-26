@@ -13,6 +13,88 @@ versions follow [SemVer](https://semver.org/) per the stability contract in
 > and the stamp's commit **sha** remains the precise reference (`/upgrade`'s three-way logic
 > keys on the sha, not the number).
 
+## [1.5.1] — 2026-07-26
+
+**What the audit of 1.5.0 found.** An adversarial review of the release above — three independent
+passes, every finding reproduced against the files — turned up 23 issues, four of them in code that
+release had just shipped and one of them the exact defect the release claimed to have eliminated.
+This is the correction.
+
+### Fixed — the appliance guard missed the form the world actually uses
+
+`S10`'s block anchored the subcommand immediately after `apt`/`apt-get`. So `apt-get install -y foo`
+blocked and **`apt-get -y install foo` did not** — as did `apt --yes upgrade`, `/usr/bin/apt update`,
+`bash -c "apt update"`, `$(apt update)`, `apt reinstall`, `dpkg --unpack`, and
+**`sudo apt-get -qq update && sudo apt-get -y dist-upgrade`, which is verbatim the sequence S10
+exists to prevent.** The ten tests shipped alongside it all passed, because they were written against
+the regex instead of against the threat.
+
+The decision now **tokenizes** the command instead of pattern-matching it: strip env prefixes and
+wrappers, find the real binary, then judge the first non-flag subcommand against a read-only
+allowlist with default-deny on anything unrecognised. Knowing where a command *starts* is also what
+lets it tell `apt install` from `git commit -m "… apt install …"`.
+
+Two scope decisions, both now enforced rather than described:
+
+- **Inside a container it is allowed.** `docker run … apt-get install …` was blocked — the remedy
+  S10 itself recommends. That is the false positive most likely to get a rule disabled.
+- **Over `ssh` or `kubectl exec` it is not.** The far end may be another appliance.
+
+### Fixed — the guard had an off-switch the guarded agent could flip
+
+Detection cached its verdict in `/tmp/.claude-appliance-host.$UID`, read *before* hardware
+detection. `echo no > …` was an allowed command and permanently disabled the guard. The cache also
+never expired, so a single transient miss (driver not loaded, `nvidia-smi` not yet on `PATH`) killed
+it silently and forever, on real hardware. **The cache is gone** — detection is ~21ms and the
+pre-filter means only apt-shaped commands pay it. `nvidia-smi` now runs under `timeout 2`, because a
+wedged driver is this hardware class's characteristic failure. An unrecognised
+`CLAUDE_APPLIANCE_HOST` value now falls through to detection rather than reading as "no".
+
+### Fixed — `check-scaffold.sh` was lying, and running other people's code
+
+- **Check 1 printed `ok` after failing.** Its baseline was captured *after* the skills, commands and
+  agents loops, so 57 real failures could print and still be summarised `ok`. This is the bug 1.5.0's
+  notes claim to have fixed, in the check they name first. Checks 2 and 7/8 had never been converted
+  at all. All three now gate their summary.
+- **The scaffold-repo predicate was `[ -f install.sh ] && [ -f README.md ]`** — which any library or
+  tool project satisfies. The consequence was not only ~100 bogus failures: check 4 then **executed
+  the target project's own `install.sh`, twice.** The predicate now also requires `VERSION` and the
+  scaffold's name inside `install.sh`, and checks 1, 1b, 4, 6, 10 and 14 all route through that one
+  boolean instead of three competing ones.
+- **Check 1b keyed on `is_file()`**, so a target project's own README was checked for always-on
+  markers it has no reason to carry — one guaranteed failure in nearly every installed project.
+- **Check 14 walked a glob list**, missing `templates/memory/` entirely, and matched bare basenames,
+  so one `kustomization.yaml` row satisfied both k8s locations. It now walks with `find` and requires
+  the parent directory wherever a basename is ambiguous.
+
+An installed project now passes clean **with its own README, `install.sh` and `VERSION` present**,
+and its installer is never run.
+
+### Fixed — claims that were wrong
+
+- `docs/tutorial-model.md` said `/bootstrap` runs "a forward pass and one training step on a
+  two-sample fixture". It runs a real one-epoch train, an eval that **loads the checkpoint back**,
+  and a resume — and for the LLM fine-tuning lane it defers training proof entirely and emits
+  `train_sft.py`/`eval_golden.py`. Corrected, including the lane caveat.
+- Both tutorials said "open the file and type…" to demo a hook. `PreToolUse` fires on **Claude's**
+  tool calls, never a human's editor — the demo could not work as written. Reframed as *ask Claude
+  to make the edit*, and the point is now stated: these are guardrails on the agent.
+- `M11`'s model-card contents were wrong (slices are `M10`/`M12`; the evaluation protocol and the
+  data version were missing). The `guard-pyproject` message was quoted with its "name the fix"
+  clause cut — the clause the surrounding text then praises.
+- **`setup.md`'s own frontmatter described five stages and omitted `/threat-model`**, contradicting
+  its body and propagating into `docs/REFERENCE.md`, where check 6 kept it green.
+- `README.md` and the compliance crosswalk still scoped `security.md` to `S1`–`S9` after S10 shipped;
+  S10 had no framework mapping at all. Both fixed, and S10 now has a crosswalk row.
+- `templates/README.md` and `authoring-extensions.md` both overstated what a check enforces.
+- `PROCESS.md` §2.1's P2-platform cell claimed trust boundaries, which are P3's — as the same table
+  said one row down.
+
+### Known and deliberate
+
+`snap install` is not blocked. S10 is scoped to the apt/dpkg-managed OS image; snaps are contained
+and don't touch the pinned driver/kernel set the same way. Noted rather than silently omitted.
+
 ## [1.5.0] — 2026-07-26
 
 **The documentation audit.** v1.4.0 renamed the scaffold and merged two families into one repo. That

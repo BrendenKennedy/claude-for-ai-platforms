@@ -100,6 +100,7 @@ Canon rule prefixes: `S` security (dev loop) · `AI` ai-security · `P` platform
 | Rule | CSF 2.0 | SP 800-53 | ISO 27001:2022 | SOC 2 |
 |---|---|---|---|---|
 | `S1`–`S9` (threat model, secrets, egress, agent identity, dev supply chain) | PR.AA, PR.DS, GV.SC | AC-6, IA-5, SC-28, SA-12 | A.5.17, A.8.12, A.8.24 | CC6.1, CC6.7 |
+| `S10` (vendor-managed appliance host: no unsanctioned system-package mutation) | PR.PS-01, PR.PS-02, ID.AM-02 | CM-2, CM-5, CM-7, SI-2 | A.8.9, A.8.19, A.8.32 | CC7.1, CC8.1 |
 | `D1`–`D6` (licensing, PII, provenance, splits, retention) | GV.OC, ID.AM-07, PR.DS | PT-2, PT-3, SI-12, RA-3 | A.5.34, A.8.10, A.8.11 | P-series (Privacy) |
 | `D7` (retrieval corpus governance + integrity) | PR.DS-01, ID.AM-07 | SI-7, SC-28, PT-2 | A.8.10, A.8.11 | CC6.1, P-series |
 | `D8` (store-level tenancy enforced by the query) | PR.AA-05, PR.DS-01 | AC-3, AC-4, SC-2 | A.5.15, A.8.3 | CC6.1, CC6.3 |

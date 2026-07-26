@@ -85,8 +85,13 @@ off it — and recovery is a **re-image, not a rollback**. This is canon (`secur
 | A Python package | `uv add <pkg>` — as always |
 | A Python CLI (ruff, pre-commit, huggingface-cli) | `uv tool install <pkg>` — no system packages involved |
 | A non-Python CLI (ripgrep, jq, conftest, trivy) | Download the **`aarch64`/`arm64`** release binary into `~/.local/bin` and `chmod +x`. An x86 binary will not run — this is the mistake that wastes the most time here |
-| Something that genuinely wants a distro | A container, so the blast radius is an image and not the host |
+| Something that genuinely wants a distro | A container — `docker run … apt-get install …` is **allowed**, because the blast radius is an image and not the host |
 | A system package, unavoidably | The **user** does it, outside the session, against vendor guidance |
+
+The guard judges the command rather than pattern-matching it, so read-only queries (`apt list`,
+`apt show`, `apt policy`, `dpkg -l`) work normally and talking *about* apt — a commit message, a
+grep, this table — is never mistaken for running it. It does block `ssh box sudo apt upgrade`: the
+far end may be an appliance too, and it has no way to know.
 
 Two more things these boxes change, beyond installation:
 

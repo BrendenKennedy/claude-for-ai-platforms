@@ -161,7 +161,7 @@ actually implemented, with evidence, lives in `control-coverage.md` — and "not
 expected status there, because an overclaimed control is worse than a missing one.
 
 The dev-loop security canon — secrets, egress, the agent's own identity — is
-[`.claude/memory/policy/security.md`](.claude/memory/policy/security.md) (`S1`–`S9`). Your project's
+[`.claude/memory/policy/security.md`](.claude/memory/policy/security.md) (`S1`–`S10`). Your project's
 own **threat model** — trust boundaries, STRIDE + OWASP ASI/LLM + MITRE ATLAS, every threat driven to
 a control or an accepted risk — is `.claude/memory/process/threat-model.md`, produced and refreshed
 by `/threat-model`.
@@ -183,7 +183,7 @@ exactly one.
 | `identity-and-access.md` | `I1`–`I9` | Human and workload identity, authn/authz, tokens, delegated agent authority |
 | `supply-chain.md` | `C1`–`C8` | Dependencies, SBOM, signing, provenance, base images, model weights, MCP servers |
 | `reliability.md` | `R1`–`R8` | SLOs, error budgets, change safety, degradation, incidents |
-| `security.md` | `S1`–`S9` | The development loop: secrets, egress, the agent's own identity |
+| `security.md` | `S1`–`S10` | The development loop: secrets, egress, the agent's own identity, appliance-host integrity |
 | `data-governance.md` | `D1`–`D10` | Datasets, labels, licensing, PII, splits, retrieval corpora, store tenancy, encryption, tested restore |
 | `model-governance.md` | `M1`–`M16` | Reproducibility, checkpoint provenance, third-party models, prompt versioning, model cards |
 
