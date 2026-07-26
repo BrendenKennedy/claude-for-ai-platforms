@@ -17,8 +17,11 @@ written gate + a decision-log line.
   the generator. The chassis is now derived from `settings.json`; the tool/lane split has no on-disk
   signal (`**Pinned:**` isn't one — 30 skills carry it, incl. lane skills). Needs a real signal or an
   accepted-hardcoding note.
-- **Publish v1.5.0** — `scripts/publish-releases.sh` covers v0.9.0–v1.4.0; v1.5.0 needs a row, and
-  the six earlier releases still aren't on GitHub.
+- **Release-on-tag automation** (2026-07-26): eight releases went unpublished across five days
+  because publishing was a manual script nobody ran. `scripts/publish-releases.sh` was the one-time
+  catch-up and shouldn't become the standing mechanism — a workflow that cuts the release from the
+  `CHANGELOG.md` section when `VERSION` changes on `main` would make the backlog structurally
+  impossible. Until then, `/wrapup` should at least *notice* that `VERSION` moved without a tag.
 - **`docs/` snapshot auto-sync** (dota2 dogfood theme #2, 3× friction): a `/wrapup`-time step or hook
   that regenerates published `docs/` process snapshots from the canonical `.claude/memory/process/`
   copies, so the two never drift. v0.9.0 shipped the canonical-home *guidance*; this is the automation.

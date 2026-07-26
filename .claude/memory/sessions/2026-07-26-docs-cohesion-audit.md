@@ -99,9 +99,18 @@ matching this repo's convention for session branches). Releases **v1.5.0** and *
 independently at 1.1.0. `check-scaffold.sh` 11 checks → 19, `check-hooks.py` 85 cases → 131, both
 green on `main` in the scaffold repo and in an installed project.
 
-**Not pushed, not tagged.** v0.9.0–v1.4.0 are still unpublished on GitHub (the earlier session
-prepared `scripts/publish-releases.sh` for them but the release-create call needs the user's
-approval); v1.5.0 and v1.5.1 now join that queue and the script needs rows for both.
+**Pushed** to `origin/main` at `9aae3e8` (8 commits). The `origin` and `fork` remote URLs still
+pointed at `claude-for-datascience` and were working only via GitHub's redirect — both repointed at
+`claude-for-ai-platforms`.
+
+**Branch cleanup:** `docs/authoring-extensions-reference` (`9c96dd5`, from 2026-07-15) was the only
+unmerged branch anywhere. Verified redundant — its `authoring-extensions.md` is a 163-line ancestor
+of main's 247-line version, and its `CLAUDE.md` line is already present. Deleted local + remote.
+Diffing against it is what surfaced the last of the pre-merge tier framing (commit `9aae3e8`).
+
+**Released.** All 8 missing releases published via `scripts/publish-releases.sh` (v0.9.0 → v1.5.1,
+with rows added for the last two). **16 CHANGELOG versions = 16 tags = 16 GitHub releases** — full
+parity for the first time. Repo description and topics also refreshed off the CV-era text.
 
 ## Related
 - `2026-07-25-ai-platform-security-fork.md` — the merge this audit cleans up after.

@@ -159,6 +159,125 @@ archetype — because the archetype maps wrong in both directions.
 _Existing installs are unaffected until they opt in: gating is by presence in `skillOverrides`, so a
 `settings.json` omitting these keys keeps them always-on._'
 
+release v1.5.0 a3cd73b "v1.5.0 — the documentation audit" \
+'v1.4.0 renamed the scaffold and merged two families into one repo. That landed correctly at the
+root and nowhere below it: the word "family" appeared 6x in `README.md` and `CLAUDE.md`, and **0x in
+any supporting doc**. Every finding below was verified against the files rather than inferred.
+
+### Statements a reader would have acted on
+
+- **`README.md` said "CI runs both" and CI ran one.** `check-hooks.py` — 85 behavioural cases
+  including the fail-open tier — was invoked by no workflow.
+- **Two hooks had no fail-open case** while three separate files asserted every hook did. Both pass;
+  they were correct, just untested. Coverage counted in claims is not coverage.
+- **The agent-preload rule was unsatisfiable.** v1.4.0 gated every domain skill, so "preload only
+  ALWAYS-ON skills" made 9 of 10 real preloads illegal. Re-derived on the axis the rule was actually
+  about — interchangeability: never a *tool*-gated skill (one of a swappable pair is wrong half the
+  time), a *lane*-gated one only while it is on.
+- `google-sre.md` cited `templates/postmortem.md` as `R8`s mechanism. No such file.
+- 14 "this fork" / "the parent scaffold" references described a fork reversed on 2026-07-26.
+
+### `docs/REFERENCE.md` was wrong at birth, not drifted
+
+Advertised as "generated from source, so it cannot drift" — and it had not drifted. **10 of 13 hook
+rows were empty** because the extractor only read `#` comments and every Python hook uses a
+docstring; and an unescaped `Edit|Write` matcher added a fourth cell to a three-column table, so
+what did render landed in the wrong column.
+
+### The installed-project blind spot
+
+`install.sh` copies `.claude/`, `CLAUDE.md` and `PROCESS.md` — **not** the README, not `docs/`. Its
+closing echo is therefore the only onboarding an installed project ever sees, and it was pre-1.4.0
+on three counts. Fixed, plus a stanza naming what shipped and what did not, and the fact that
+`build-reference.py` works in an installed project and will generate an index from *that* project.
+
+- **The tutorial forks by family.** It claimed "~30 minutes on synthetic data" and was a 40-minute
+  platform walkthrough with none, while `README.md` sent Model-family users into Kustomize and
+  `/redteam`. Now a chooser plus `tutorial-platform.md` and a new `tutorial-model.md`.
+- **`README.md` gains a "Where to read next" table**, carrying the single most-missing link in the
+  repo: `PROCESS.md` — 646 lines governing every gate, installed into every project, previously
+  unreachable from the front door.
+- **`PROCESS.md` is retitled for both families** and gains §2.1 mapping the data-science phase names
+  onto platform work. Phase names stay; `decision-log.md` records why. Its own version → 1.1.0.
+
+### The checks, so this audit does not need repeating
+
+`check-scaffold.sh` 11 checks → 19. CI now runs `check-hooks.py`. New: every check-* script is
+actually invoked by CI; every hook has cases **and** a fail-open case (AST-parsed, not grepped);
+`PROCESS.md`s header matches its own changelog; framework "How it lands here" paths resolve;
+`memory/reference/` notes are registered; four directory indexes name every file they hold.
+
+> ⚠️ This release also claimed `check-scaffold.sh` works in an installed project, and claimed to
+> have fixed the checks that print `ok` after failing. Both were wrong — see **v1.5.1**.'
+
+release v1.5.1 9aae3e8 "v1.5.1 — what the audit of 1.5.0 found" \
+'An adversarial review of the release above — three independent passes, every finding reproduced —
+turned up 23 issues. **Four were in code v1.5.0 had just shipped, and one was the exact defect that
+release claimed to have eliminated.**
+
+### The appliance guard missed the form the world actually uses
+
+v1.5.0 shipped `S10`: never `apt` on a vendor-managed appliance box (DGX Spark / GB10 / Jetson),
+where the OS image is a tested set and recovery is a re-image rather than a rollback. The block
+anchored the subcommand immediately after the binary — so `apt-get install -y foo` blocked and
+**`apt-get -y install foo` did not**, along with absolute paths, `bash -c`, `$( )`, `apt reinstall`,
+`dpkg --unpack`, and `apt-get -qq update && apt-get -y dist-upgrade`, **which is verbatim the
+sequence S10 exists to prevent**.
+
+The ten tests shipped with it all passed, because they were written against the regex instead of
+against the threat. The decision now **tokenizes**: strip env prefixes and wrappers, find the real
+binary, judge the first non-flag subcommand against a read-only allowlist, default-deny the rest.
+Knowing where a command *starts* is also what distinguishes a real invocation from
+`git commit -m "… apt install …"` describing one.
+
+- **Containers are allowed** (`docker run`/`exec`, `podman`) — a container is the remedy S10 itself
+  recommends, and blocking it is the false positive most likely to get a rule disabled.
+- **`ssh` and `kubectl exec` are not** — the far end may be an appliance too.
+- **Heredoc bodies are data**, unless fed to a shell. Found the hard way: the first version of this
+  release commit was blocked by its own message.
+
+### The guard had an off-switch the guarded agent could flip
+
+Detection cached to `/tmp/.claude-appliance-host.$UID`, **read before hardware detection and
+writable by the agent being guarded** — one `echo` disabled it permanently, and that echo was itself
+an allowed command. The cache also never expired, so a single transient miss (driver not loaded,
+`nvidia-smi` not yet on `PATH`) killed the guard silently and forever on real hardware. Cache
+removed; detection is ~21ms and a pre-filter means only apt-shaped commands pay it. `nvidia-smi`
+runs under `timeout 2`, because a wedged driver is this hardware class characteristic failure.
+
+### `check-scaffold.sh` was lying, and running other peoples code
+
+- **Check 1 printed `ok` after failing.** Its baseline was captured *after* the skills, commands and
+  agents loops, so 57 real failures could print and still be summarised `ok`. This is the bug
+  v1.5.0s notes claim to have fixed, in the check they name first. Checks 2 and 7/8 had never been
+  converted at all.
+- **The scaffold-repo predicate was `install.sh` + `README.md`** — which any library or tool project
+  satisfies. The consequence was not only ~100 bogus failures: check 4 then **executed the target
+  projects own `install.sh`, twice.** Proven with a side-effect marker. Tightened, and six checks
+  now route through one predicate instead of three competing ones.
+- **Check 14** walked a glob list that missed `templates/memory/` entirely and matched bare
+  basenames, so one `kustomization.yaml` row satisfied both k8s locations.
+
+An installed project now passes clean **with its own README, `install.sh` and `VERSION` present**,
+and its installer is never executed.
+
+### Claims that were wrong, including in a file v1.5.0 wrote
+
+`tutorial-model.md` described a `/bootstrap` step that does not exist and was flatly wrong for the
+LLM lane (which defers training proof and emits `train_sft.py`). Both tutorials demoed a hook by
+saying "open the file and type" — `PreToolUse` fires on Claudes tool calls, never a human editor,
+so the demo could not work. `setup.md`s own frontmatter listed five stages and omitted
+`/threat-model`, propagating into `docs/REFERENCE.md` where check 6 kept it green. `README.md` and
+the compliance crosswalk still scoped `security.md` to `S1`–`S9` after S10 shipped.
+
+### The pattern
+
+All four self-inflicted defects came from testing that a claim was self-consistent rather than
+testing it against the thing it describes. **A test written after the implementation tests the
+implementation.** 131 hook cases now, up from 85, written threat-first and failing before the fix.
+
+_Not blocked, deliberately: `snap`. S10 is scoped to the apt/dpkg-managed image._'
+
 # ---------------------------------------------------------------------------------------------
 # Repo metadata — the description and topics still describe a computer-vision scaffold.
 
