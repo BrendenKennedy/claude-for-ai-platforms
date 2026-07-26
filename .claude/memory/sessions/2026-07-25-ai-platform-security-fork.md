@@ -231,7 +231,7 @@ divergence** — `/intake` already classified into two families and already flip
 per lane, so the machinery existed and was proven. Against that: 65 of 107 inherited files
 untouched (pure duplication), branch 11 commits ahead of `main` with **zero divergence**, and the
 `check-scaffold.sh` exit-status bug as a live example of the cherry-picking tax a split would have
-imposed forever. Merged as a clean fast-forward; renamed to **`claude-for-ml-platforms`**.
+imposed forever. Merged as a clean fast-forward; renamed to **`claude-for-ai-platforms`**.
 
 ### The merge only worked because both wings gate
 
@@ -270,7 +270,7 @@ URL) would have been needed either way.
 - **The `claude-for-ai-platforms` repo is now orphaned** — created, never pushed to, superseded.
   The user should delete it, or keep it as a redirect placeholder.
 - **The GitHub repo rename is a user action** — `claude-for-datascience` →
-  `claude-for-ml-platforms`. The docs already name the new one, so the documented clone URLs are
+  `claude-for-ai-platforms`. The docs already name the new one, so the documented clone URLs are
   wrong until that rename happens. GitHub redirects the old URL afterwards.
 - **The push itself** was resolved for `main` (merged and pushed). What remains blocked:
   `add_repo` (needed to widen the session's git proxy beyond

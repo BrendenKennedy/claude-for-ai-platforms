@@ -56,6 +56,51 @@ for f in .claude/agents/*.md; do
 done
 ok "drift: skills/commands/agents on disk are all named in CLAUDE.md + README.md"
 
+# ---- 1b. TIER DRIFT: settings.json -> docs -----------------------------------
+# Check 1 proves a skill is NAMED in the docs. It does not prove it is named in the right TIER, and
+# that gap shipped: v1.4.0 gated the security spine and the DS core, and the README went on
+# advertising an "Always-on security & platform spine" while CI stayed green. A front door that
+# misstates what you pay context for is worse than one that omits it.
+# Source of truth: a skill is always-on iff it is NOT a key in settings.json's skillOverrides.
+python3 - <<'PY'
+import json, pathlib, re, sys
+
+settings = json.loads(pathlib.Path(".claude/settings.json").read_text())
+gated = set(settings.get("skillOverrides", {}))
+on_disk = {p.parent.name for p in pathlib.Path(".claude/skills").glob("*/SKILL.md")} - {"_example"}
+always_on = on_disk - gated
+
+problems = []
+for doc in ("README.md", "CLAUDE.md"):
+    text = pathlib.Path(doc).read_text()
+    # Explicit markers, not a prose regex. The first version of this check scanned from the phrase
+    # "always-on" to the next line mentioning "gated" — which broke on a list that soft-wrapped onto
+    # the "gated" sentence, and would have broken again on CLAUDE.md, whose always-on label literally
+    # reads "the only tier that is never gated". A check that depends on line-wrapping is a check
+    # someone deletes the second time it cries wolf. HTML comments render as nothing and say what
+    # they are for.
+    m = re.search(r"(?s)<!-- always-on:start -->(.*?)<!-- always-on:end -->", text)
+    if not m:
+        problems.append(f"{doc}: missing <!-- always-on:start/end --> markers around the always-on skill list")
+        continue
+    block = m.group(1)
+    listed = set(re.findall(r"`([a-z][a-z0-9-]+)`", block)) & on_disk
+    for missing in sorted(always_on - listed):
+        problems.append(f"{doc}: '{missing}' is always-on (not in skillOverrides) but not listed in the always-on tier")
+    for wrong in sorted(listed - always_on):
+        problems.append(f"{doc}: '{wrong}' is listed as always-on but IS gated in skillOverrides")
+
+if problems:
+    print("\n".join("  " + p for p in problems), file=sys.stderr)
+    sys.exit(1)
+PY
+tier_status=$?
+if [ "$tier_status" -ne 0 ]; then
+  fail "tier drift: the always-on skill tier in the docs disagrees with settings.json"
+else
+  ok "tiers: the always-on set in README.md + CLAUDE.md matches settings.json skillOverrides"
+fi
+
 # ---- 2. FRONTMATTER ---------------------------------------------------------
 for f in .claude/skills/*/SKILL.md; do
   dir_name="$(basename "$(dirname "$f")")"

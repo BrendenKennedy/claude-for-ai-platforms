@@ -1,6 +1,6 @@
 ---
 description: >
-  Upgrade this project's installed scaffold to a newer claude-for-ml-platforms release — read the
+  Upgrade this project's installed scaffold to a newer claude-for-ai-platforms release — read the
   `.claude/scaffold-version` stamp, walk the CHANGELOG delta, then apply upstream changes under a
   three-way safety rule: ADD new files, REPLACE only files the project never modified, ASK about
   everything locally edited. Preserves memory/ state, the skillOverrides profile, and filled
@@ -19,7 +19,7 @@ not through this command. Say so and stop.
 
 ## 1. Get upstream + the story
 - Upstream source: `$1` if given (a local clone — `git -C <path> pull` it), else clone fresh
-  into the scratchpad (`git clone https://github.com/BrendenKennedy/claude-for-ml-platforms`).
+  into the scratchpad (`git clone https://github.com/BrendenKennedy/claude-for-ai-platforms`).
 - Read upstream `VERSION`. Equal to the stamp → already current; stop.
 - Read the `CHANGELOG.md` entries between the stamp version and upstream, and **summarize for
   the user what this upgrade contains before touching any file** — the CHANGELOG is written for

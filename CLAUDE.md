@@ -4,7 +4,7 @@ The map of the Claude configuration here: what lives under `.claude/` and when t
 Depth deliberately lives in the skills/docs this points to — skills auto-surface by description;
 this file is for the always-on conventions and registration. Project details: the skills + `README.md`.
 
-> **claude-for-ml-platforms** — one scaffold, two families of work, chosen at `/intake`:
+> **claude-for-ai-platforms** — one scaffold, two families of work, chosen at `/intake`:
 > **build an AI platform securely** (agent and LLM security, Kubernetes, SRE, observability,
 > identity, supply chain) or **build a model** (CV · tabular · time-series · LLM fine-tuning).
 > Neither is bolted on: the platform family needs the DS fundamentals that eval work rests on, and
@@ -64,8 +64,10 @@ The rules that apply to essentially every change (fuller policy via the `governa
 ## Skills — `.claude/skills/<name>/SKILL.md`
 Auto-surface by description (that text is the entire routing surface — see
 `memory/reference/authoring-extensions.md` before adding one). Tiers:
+<!-- always-on:start -->
 - **Always-on chassis — the only tier that is never gated:** `process` · `governance` · `testing` ·
   `memory` · `wave-planning`. Five skills, both families, every project.
+<!-- always-on:end -->
 - **Gated** (`/intake` flips via `skillOverrides`; off = zero context cost). **Both wings gate**, so
   a tabular-regression project never pays for the agentic threat surface and an inference platform
   never pays for `eda` and `notebooks`:

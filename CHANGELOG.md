@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to claude-for-ml-platforms. Format follows [Keep a Changelog](https://keepachangelog.com/);
+All notable changes to claude-for-ai-platforms. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versions follow [SemVer](https://semver.org/) per the stability contract in
 [CONTRIBUTING.md](CONTRIBUTING.md). Installed projects can compare their
 `.claude/scaffold-version` stamp against these entries to see what they're missing — and run
@@ -17,8 +17,12 @@ versions follow [SemVer](https://semver.org/) per the stability contract in
 
 **One scaffold, two families.** The AI-platform security work was built as a fork and was about to
 be split into its own repo. It is merged back instead, and `/intake` asks which kind of project you
-are starting. Also renamed: `claude-for-datascience` → **`claude-for-ml-platforms`**, because
+are starting. Also renamed: `claude-for-datascience` → **`claude-for-ai-platforms`**, because
 roughly 60% of the tree is now platform and security and the old name misdescribed it.
+
+`ai` rather than `ml` in the name is deliberate: the scope is agents, LLM security, identity,
+supply chain, and cluster operations — machine learning is one part of what runs on the platform,
+not the boundary of what the scaffold covers. GitHub redirects the old URL.
 
 ### Why the merge rather than the split
 
@@ -67,6 +71,38 @@ explicitly.
 **"N/A for this archetype" is a valid gate answer; silence is not.** An item nobody considered reads
 identically to one considered and dismissed, and only one of those is safe. A definition doc with no
 archetype is itself gate debt — it means `/intake` never ran.
+
+### Added — `check-scaffold.sh` check 1b: always-on tier drift
+
+Check 1 proved every skill was *named* in `README.md` and `CLAUDE.md`. It never proved a skill was
+named in the right **tier** — and that gap shipped immediately: this release gated the security
+spine and the DS core while the README went on advertising an "Always-on security & platform spine",
+and CI stayed green through it. A front door that misstates what you pay context for is worse than
+one that omits it.
+
+1b takes `settings.json` as the source of truth (a skill is always-on iff it is *not* a key in
+`skillOverrides`) and asserts both docs list exactly that set. Negative-tested three ways: a gated
+skill planted in the always-on tier, an always-on skill removed from it, and the markers deleted —
+all three fail the check.
+
+The always-on list is delimited by `<!-- always-on:start -->` / `<!-- always-on:end -->` rather than
+found by prose regex. The first version scanned from the phrase "always-on" to the next line
+mentioning "gated", which broke on a list that soft-wrapped onto the "gated" sentence and would have
+broken again on `CLAUDE.md`, whose label reads *"the only tier that is never gated"*. A check that
+depends on line-wrapping is one someone deletes the second time it cries wolf.
+
+### Changed — README rebuilt for someone arriving cold
+
+The README was 222 lines with no table of contents, the quick start at line 46 behind a five-point
+abstract, and the three worked examples — the most useful thing in it — buried at line 148. It now
+runs: what it is → **which one am I?** → quick start → what it actually does → the security model →
+reference. The "which one am I?" table is new and answers the question the whole scaffold configures
+itself from, which the README previously never addressed. Long skill lists are collapsed so the page
+scans.
+
+Corrected while there: "50 skills" (58), `platform-security.md` `P1`–`P10` (`P1`–`P11`),
+`data-governance.md` `D1`–`D7` (`D1`–`D10`), and the "this fork" framing left over from before the
+merge.
 
 ### Changed — framing
 
@@ -184,7 +220,7 @@ register rather than quietly resolved:
 
 ### Changed — the repo name
 
-The scaffold's own name is now **`claude-for-ml-platforms`** (plural) throughout, matching the repo
+The scaffold's own name is now **`claude-for-ai-platforms`** (plural) throughout, matching the repo
 it actually lives in. Every document said the singular — 24 occurrences across 13 files, including
 the README title, both documented clone URLs, and **the clone URL embedded in `/upgrade`**, where a
 wrong value fails silently for every downstream project. The AWS IAM identity in `infra-aws` and
@@ -314,7 +350,7 @@ platform runs on, the engines that move data between them, and the clouds that h
 
 ## [1.0.0] — 2026-07-25
 
-**The AI-platform security fork.** `claude-for-datascience` 0.9.0 became `claude-for-ml-platforms`:
+**The AI-platform security fork.** `claude-for-datascience` 0.9.0 became `claude-for-ai-platforms`:
 a scaffold for building AI platforms securely. The data-science layer is kept and regated, not
 removed — evaluating an agent is an empirical problem, and the split discipline and statistical
 honesty that make model evaluation trustworthy are what make agent evaluation trustworthy.

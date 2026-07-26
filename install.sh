@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# install.sh — drop the claude-for-ml-platforms skeleton into a target project.
+# install.sh — drop the claude-for-ai-platforms skeleton into a target project.
 #
 # Usage:
 #   ./install.sh [TARGET_DIR]        # default TARGET_DIR is the current directory

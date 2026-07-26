@@ -329,7 +329,7 @@ user WILL assume this command handled them unless step 4 tells them otherwise:
 ## 4. Template-mode cleanup (only when the repo IS the scaffold)
 
 Two ways this scaffold arrives: `install.sh` into an existing project (leaves a `.claude/scaffold-version`
-stamp), or GitHub's **"Use this template"** (the repo *is* a copy of claude-for-ml-platforms — no stamp, and it
+stamp), or GitHub's **"Use this template"** (the repo *is* a copy of claude-for-ai-platforms — no stamp, and it
 carries the scaffold's own delivery files, which are about the scaffold, not the user's project).
 
 **Detect template mode:** `install.sh` **and** `.claude/scripts/check-scaffold.sh` exist at repo root
@@ -342,7 +342,7 @@ If detected, **offer** the cleanup (AskUserQuestion — never do this silently; 
 - Replace `.github/workflows/ci.yml` (the *scaffold's* self-consistency CI — it would fail against a
   real project) with `.claude/templates/project-ci.yml`.
 - Replace `README.md` (the scaffold's own) with a minimal project stub: project title, quick start,
-  and a "configured by claude-for-ml-platforms vX" line. Keep `CHANGELOG.md` only if the user wants one.
+  and a "configured by claude-for-ai-platforms vX" line. Keep `CHANGELOG.md` only if the user wants one.
 - Optionally delete `.claude/scripts/check-scaffold.sh` — it checks the scaffold, not the project.
 
 If declined, note in the report that the scaffold's own delivery files are still in place.
