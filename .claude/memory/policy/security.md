@@ -135,6 +135,39 @@ servers — are `supply-chain.md` `C1`–`C8`.
 *Why: the development machine holds every credential the project has, which makes it the highest-value
 target in the system and the one with the least review.*
 
+## S10 — On a vendor-managed appliance box, the OS is not yours to update
+
+DGX Spark, GB10/Grace-Blackwell workstations, and Jetson boards ship a **vendor-managed OS image**:
+the kernel, the NVIDIA driver, the CUDA stack, and the boot chain are a tested set held together by
+pinned distro packages. `apt update` re-points the indexes; the next `apt upgrade` walks those
+packages off the vendor's set. The failure mode is not a broken package — it is a box that no longer
+boots, or one where CUDA silently stops working, and **recovery is a full re-image, not a rollback.**
+There is no lockfile for the host.
+
+So, on a detected appliance host, an agent **never** runs `apt`/`apt-get` `update`, `upgrade`,
+`dist-upgrade`, `install`, `remove`, `purge`, `autoremove`; `dpkg -i/-r/-P`; `add-apt-repository`; or
+`do-release-upgrade`. Read-only queries (`apt list`, `apt show`, `apt-cache`, `dpkg -l`) are fine —
+knowing what is installed is not the hazard.
+
+**What to do instead**, in order of preference:
+- A **static or prebuilt binary** into `~/.local/bin` (most CLI tools ship one; check the arch —
+  these boxes are `aarch64`, and an x86 binary will simply not run).
+- **`uv`** for anything Python: `uv add` for project deps, `uv tool install` for CLIs. This is
+  already the project rule (S9) and it needs no system packages.
+- A **container** for anything that genuinely wants a distro underneath it, so the blast radius is
+  an image rather than the host.
+- If a package really must be installed system-wide, that is a **human decision made outside the
+  session**, against vendor guidance — not something an agent does on the user's behalf.
+
+*Why: every other rule here protects data or credentials, which are recoverable. This one protects
+the machine itself, which — on a box whose whole value is that its accelerator stack works — is the
+only failure in this document that can cost days rather than minutes.*
+
+**Mechanism:** `validate-bash.sh` B0 blocks these commands, host-gated so it is inert on an ordinary
+Linux box, with `CLAUDE_APPLIANCE_HOST=yes|no` to override detection either way. Detection: `GB[0-9]`
+or `DGX Spark` in `nvidia-smi -L`, `/etc/nv_tegra_release`, or an appliance DMI/device-tree model.
+Environment guidance for these boxes lives in the `env-uv` skill.
+
 ## Decision log
 
 Irreducible judgment calls (a new egress destination, an exception to a rule above) go in

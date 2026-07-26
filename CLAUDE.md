@@ -59,6 +59,11 @@ The rules that apply to essentially every change (fuller policy via the `governa
 - **Config over constants** — hyperparameters and paths flow through the config system, never
   hardcoded or read from the environment mid-logic.
 - **Deps via `uv add`** — never hand-edit `pyproject.toml` (the `guard-pyproject` hook enforces).
+- **Never `apt` on a vendor-managed appliance box** (DGX Spark · GB10/Grace-Blackwell · Jetson).
+  The OS image is a tested set — `apt update` re-points the indexes and the next upgrade walks the
+  driver/CUDA/kernel off it, and recovery is a **re-image, not a rollback**. Use a static `aarch64`
+  binary in `~/.local/bin`, `uv` for anything Python, or a container. Read-only `apt list`/`show` is
+  fine. `validate-bash.sh` B0 enforces this, host-gated and inert elsewhere (`security.md` `S10`).
 - **Don't hand-format** — the ruff hooks own style. Bite: `ruff check --fix` runs after *every*
   Edit/Write, so write an import and its usage in the **same** edit or F401 deletes it between.
 - **Terse working output** — status updates and findings, not narration; every reply becomes
@@ -143,7 +148,7 @@ All fail open; every one has block/allow/**fail-open** cases in `.claude/scripts
 | Hook | Event | Does |
 |---|---|---|
 | `session-orient.py` | SessionStart (startup·clear) | "where are we" briefing — phase, gate debt, **threat-model age, error-budget attention, expired policy exceptions**, last session, roadmap next |
-| `validate-bash.sh` | Pre · Bash | blocks root/home wipes, `.env` + kubeconfig + Secret reads, curl-pipe-to-shell; confirm dialog on destructive ops (recursive deletes, git/dvc discards, `kubectl delete`/`drain`/`exec`, `helm uninstall`, `terraform apply`/`destroy`, argocd/flux delete, vault delete, AWS + cluster RBAC mutation) |
+| `validate-bash.sh` | Pre · Bash | blocks root/home wipes, `.env` + kubeconfig + Secret reads, curl-pipe-to-shell, and **`apt`/`dpkg` mutation on an appliance box** (`S10`, host-gated); confirm dialog on destructive ops (recursive deletes, git/dvc discards, `kubectl delete`/`drain`/`exec`, `helm uninstall`, `terraform apply`/`destroy`, argocd/flux delete, vault delete, AWS + cluster RBAC mutation) |
 | `guard-pyproject.py` | Pre · Edit/Write | dependency edits go through `uv add`/`uv remove` |
 | `guard-notebook-outputs.py` | Pre · Edit/Write | `.ipynb` must commit output-stripped |
 | `guard-secrets.py` | Pre · Edit/Write | blocks credential-shaped writes — provider keys, JWTs, kubeconfig material, cloud SA keys |

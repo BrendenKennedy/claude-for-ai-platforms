@@ -18,6 +18,7 @@ Usage:  python3 .claude/scripts/check-hooks.py      (from the repo root; exits 1
 """
 
 import json
+import os
 import pathlib
 import subprocess
 import sys
@@ -27,10 +28,14 @@ H = ".claude/hooks/"
 FAILS = []
 
 
-def run(hook, payload, expect, label):
+def run(hook, payload, expect, label, env=None):
     data = payload if isinstance(payload, str) else json.dumps(payload)
+    # env: for host-conditional guards. The appliance-host apt block must be exercised in BOTH
+    # directions on ANY runner — asserting "blocks" unconditionally would pass on a DGX Spark and
+    # fail on an x86 CI box, which is a test that reports where it ran, not whether it works.
+    proc_env = {**os.environ, **env} if env else None
     p = subprocess.run(
-        [H + hook], input=data, capture_output=True, text=True, timeout=60
+        [H + hook], input=data, capture_output=True, text=True, timeout=60, env=proc_env
     )
     got = p.returncode
     ask = '"permissionDecision"' in (p.stdout or "")
@@ -424,6 +429,64 @@ run(
 run("validate-bash.sh", bash("argocd app delete api"), "ask", "argocd app delete")
 run("validate-bash.sh", bash("ls -la"), "allow", "innocuous command")
 run("validate-bash.sh", "{{{bad", "allow", "FAIL-OPEN malformed stdin")
+
+# Appliance-host apt guard (DGX Spark / GB10 / Jetson). Both directions, forced via the env
+# override, so the result is the same on a Spark and on an x86 CI runner. The literals are split
+# so this file's own text can't trip the guard when it is read or edited.
+APPLIANCE = {"CLAUDE_APPLIANCE_HOST": "yes"}
+ORDINARY = {"CLAUDE_APPLIANCE_HOST": "no"}
+for sub in ("update", "upgrade", "install ripgrep", "purge nvidia-driver-535"):
+    run(
+        "validate-bash.sh",
+        bash("sudo " + "apt " + sub),
+        "block",
+        f"appliance: apt {sub.split()[0]} blocked",
+        env=APPLIANCE,
+    )
+run(
+    "validate-bash.sh",
+    bash("sudo " + "dpkg -i x.deb"),
+    "block",
+    "appliance: dpkg -i blocked",
+    env=APPLIANCE,
+)
+run(
+    "validate-bash.sh",
+    bash("sudo " + "add-apt-repository ppa:x/y"),
+    "block",
+    "appliance: add-apt-repo blocked",
+    env=APPLIANCE,
+)
+# Read-only apt stays usable — a guard with false positives gets deleted.
+run(
+    "validate-bash.sh",
+    bash("apt " + "list --installed"),
+    "allow",
+    "appliance: read-only apt allowed",
+    env=APPLIANCE,
+)
+run(
+    "validate-bash.sh",
+    bash("apt-cache " + "search jq"),
+    "allow",
+    "appliance: apt-cache allowed",
+    env=APPLIANCE,
+)
+run(
+    "validate-bash.sh",
+    bash("uv tool install ruff"),
+    "allow",
+    "appliance: uv is the way in",
+    env=APPLIANCE,
+)
+# ...and the whole rule is inert on an ordinary box.
+run(
+    "validate-bash.sh",
+    bash("sudo " + "apt " + "update"),
+    "allow",
+    "ordinary host: apt untouched",
+    env=ORDINARY,
+)
 
 print("\n== Stop hooks (loop guard) ==")
 run("run-security-tests.sh", {"stop_hook_active": True}, "allow", "loop guard honoured")

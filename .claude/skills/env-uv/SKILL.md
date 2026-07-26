@@ -63,6 +63,41 @@ Then `uv sync`. For a CPU-only box use `.../whl/cpu`. The wheel must match on **
 Developing over SSH on a remote GPU host? This all runs the same there — the env lives on that box; just
 `uv run` inside the repo over the SSH session.
 
+## Appliance boxes (DGX Spark · GB10/Grace-Blackwell · Jetson) — never `apt`
+
+Know which kind of box you're on before installing anything:
+
+```bash
+uname -m                    # aarch64 => not the default x86 wheel index
+nvidia-smi -L               # "GB10" / "DGX Spark" => appliance box
+nvidia-smi --query-gpu=name,memory.total,driver_version --format=csv
+```
+
+If it's an appliance box, its OS image is **vendor-managed**: kernel, driver, CUDA and boot chain are
+a tested set of pinned packages. `apt update` re-points the indexes and the next upgrade walks them
+off it — and recovery is a **re-image, not a rollback**. This is canon (`security.md` `S10`) and
+`validate-bash.sh` blocks it; the block is host-gated, so it's inert on an ordinary box.
+
+**Install things this way instead:**
+
+| Want | Do |
+|---|---|
+| A Python package | `uv add <pkg>` — as always |
+| A Python CLI (ruff, pre-commit, huggingface-cli) | `uv tool install <pkg>` — no system packages involved |
+| A non-Python CLI (ripgrep, jq, conftest, trivy) | Download the **`aarch64`/`arm64`** release binary into `~/.local/bin` and `chmod +x`. An x86 binary will not run — this is the mistake that wastes the most time here |
+| Something that genuinely wants a distro | A container, so the blast radius is an image and not the host |
+| A system package, unavoidably | The **user** does it, outside the session, against vendor guidance |
+
+Two more things these boxes change, beyond installation:
+
+- **Unified memory.** Host and GPU share one pool (a Spark has ~128 GB), so the usual "will the
+  weights fit in VRAM" arithmetic doesn't transfer — models that are impossible on a 24 GB discrete
+  card run here, at very different memory *bandwidth*. Size from measurement, not from a discrete-GPU
+  rule of thumb.
+- **`aarch64` narrows the wheel and image supply.** Many prebuilt wheels and most published container
+  images are x86-only. Check the arch before assuming an image or a `pip install` will work, and
+  prefer NVIDIA's ARM-built images (`nvcr.io`) for CUDA workloads.
+
 ## When a GPU stack won't co-resolve → an isolated second env
 Some GPU libraries can't share one lock with the base project — their transitive pins conflict with the
 versions your DS stack needs. The one that bites: **RAPIDS** (`cuml-cu13`, `cudf`) drags in a `numba`

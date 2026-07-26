@@ -31,6 +31,51 @@ ask() {
 
 # ── BLOCK tier ───────────────────────────────────────────────────────────────
 
+# B0) System package management on an NVIDIA appliance box (DGX Spark / GB10 Grace-Blackwell /
+#     Jetson). These ship a vendor-managed OS image where the kernel, the CUDA stack, and the boot
+#     chain are held together by pinned distro packages. `apt update` re-points the indexes and
+#     `apt upgrade` then walks the driver/CUDA/kernel packages off the vendor's tested set — which
+#     is how these boxes get bricked, and recovery is a full re-image, not a rollback.
+#
+#     Host-gated: this fires ONLY on a detected appliance box, so it is inert on an ordinary Linux
+#     dev machine or CI runner. Detection is cached per session and fails OPEN — if we cannot tell
+#     what the host is, we do not block.
+#
+#     The way to install things on these boxes: static/prebuilt binaries into ~/.local/bin, uv for
+#     Python, containers for anything that wants a distro. See env-uv and security.md S10.
+#     CLAUDE_APPLIANCE_HOST=yes|no overrides detection — set `yes` to opt a box in that we don't
+#     recognise, `no` to opt out. It is also what makes this testable on an x86 CI runner.
+appliance_marker="${TMPDIR:-/tmp}/.claude-appliance-host.$(id -u)"
+is_appliance_host() {
+  case "${CLAUDE_APPLIANCE_HOST:-}" in
+    yes|1|true) return 0 ;;
+    no|0|false) return 1 ;;
+  esac
+  if [ -f "$appliance_marker" ]; then
+    [ "$(cat "$appliance_marker" 2>/dev/null)" = "yes" ] && return 0 || return 1
+  fi
+  verdict=no
+  # GB10 / GB2xx Grace-Blackwell, or an NVIDIA-branded Spark/Jetson board.
+  if command -v nvidia-smi >/dev/null 2>&1 && \
+     nvidia-smi -L 2>/dev/null | grep -Eqi 'GB[0-9]{2,3}|DGX[[:space:]]*Spark'; then
+    verdict=yes
+  elif [ -f /etc/nv_tegra_release ]; then
+    verdict=yes
+  elif grep -qi 'dgx[[:space:]]*spark\|AI TOP ATOM' /sys/devices/virtual/dmi/id/product_name \
+        /proc/device-tree/model 2>/dev/null; then
+    verdict=yes
+  fi
+  printf '%s' "$verdict" > "$appliance_marker" 2>/dev/null || true
+  [ "$verdict" = "yes" ]
+}
+
+if printf '%s' "$cmd" | grep -Eq '(^|[;&|`([:space:]])(sudo[[:space:]]+)?(apt|apt-get)[[:space:]]+(update|upgrade|dist-upgrade|full-upgrade|install|remove|purge|autoremove)([[:space:]]|;|$)|(^|[;&|`([:space:]])(sudo[[:space:]]+)?dpkg[[:space:]]+(-i|--install|-r|--remove|-P|--purge)([[:space:]]|$)|(^|[;&|`([:space:]])(sudo[[:space:]]+)?add-apt-repository([[:space:]]|$)|(^|[;&|`([:space:]])(sudo[[:space:]]+)?do-release-upgrade([[:space:]]|$)'; then
+  if is_appliance_host; then
+    echo "BLOCKED: this is an NVIDIA appliance box (DGX Spark / GB10 / Jetson) and apt/dpkg mutations are not safe on it. The OS image is vendor-managed: apt update re-points the indexes and the next upgrade walks the driver, CUDA and kernel packages off the tested set. Recovery is a re-image, not a rollback. Instead: a static or prebuilt binary into ~/.local/bin, uv for anything Python (uv tool install / uv add), or a container for anything that really wants a distro. Read-only apt is fine (apt list, apt show, apt-cache, dpkg -l). See security.md S10 and the env-uv skill. If you are certain this specific package is safe and vendor-sanctioned, the user must run it themselves - outside this session." >&2
+    exit 2
+  fi
+fi
+
 # B1) Recursive force-deletes aimed at a root / home path.
 if printf '%s' "$cmd" | grep -Eq 'rm[[:space:]]+-[a-zA-Z]*(rf|fr)[a-zA-Z]*[[:space:]]+(/|~/?|/\*|\$HOME/?|/home/[^[:space:];]+)([[:space:]]|;|$)'; then
   echo "BLOCKED: refusing a recursive force-delete of a root/home path. Narrow the target path." >&2
