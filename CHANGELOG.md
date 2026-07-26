@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to claude-for-datascience. Format follows [Keep a Changelog](https://keepachangelog.com/);
+All notable changes to claude-for-ai-platforms. Format follows [Keep a Changelog](https://keepachangelog.com/);
 versions follow [SemVer](https://semver.org/) per the stability contract in
 [CONTRIBUTING.md](CONTRIBUTING.md). Installed projects can compare their
 `.claude/scaffold-version` stamp against these entries to see what they're missing — and run
@@ -120,6 +120,18 @@ register rather than quietly resolved:
   but the comment now says so instead of claiming read-only.
 - Whether any *other* hook shares the Edit-path assumption in a form the 87 cases don't reach. The
   five previously-uncovered hooks now have cases; that is evidence, not proof.
+
+### Changed — the repo name
+
+The scaffold's own name is now **`claude-for-ai-platforms`** (plural) throughout, matching the repo
+it actually lives in. Every document said the singular — 24 occurrences across 13 files, including
+the README title, both documented clone URLs, and **the clone URL embedded in `/upgrade`**, where a
+wrong value fails silently for every downstream project. The AWS IAM identity in `infra-aws` and
+`templates/aws-iam-policy.json` was renamed to match; pre-fork changelog entries naming the old
+`claude-for-datascience` IAM role were left alone, being accurate when written.
+
+No separate version for this: nothing ever shipped under the singular name, so a patch release for
+a name no user saw would be invented history.
 
 ### Known false positive
 
@@ -241,7 +253,7 @@ platform runs on, the engines that move data between them, and the clouds that h
 
 ## [1.0.0] — 2026-07-25
 
-**The AI-platform security fork.** `claude-for-datascience` 0.9.0 became `claude-for-ai-platform`:
+**The AI-platform security fork.** `claude-for-datascience` 0.9.0 became `claude-for-ai-platforms`:
 a scaffold for building AI platforms securely. The data-science layer is kept and regated, not
 removed — evaluating an agent is an empirical problem, and the split discipline and statistical
 honesty that make model evaluation trustworthy are what make agent evaluation trustworthy.

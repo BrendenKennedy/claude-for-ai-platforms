@@ -96,7 +96,7 @@
 | [`/skill-update`](../.claude/commands/skill-update.md) | Sync a tool skill to the version the project actually runs — compare its **Pinned:** line against the locked dependency, research what changed between those versions,… |
 | [`/slo`](../.claude/commands/slo.md) | Define or review service level objectives — pick SLIs users actually feel, set targets with a window and an agreed consequence, and record them in the SLO register. |
 | [`/threat-model`](../.claude/commands/threat-model.md) | Build or refresh the project's threat model — map trust boundaries, enumerate threats against STRIDE + OWASP ASI/LLM + MITRE ATLAS, and drive every one to a decision. |
-| [`/upgrade`](../.claude/commands/upgrade.md) | Upgrade this project's installed scaffold to a newer claude-for-ai-platform release — read the `.claude/scaffold-version` stamp, walk the CHANGELOG delta, then apply… |
+| [`/upgrade`](../.claude/commands/upgrade.md) | Upgrade this project's installed scaffold to a newer claude-for-ai-platforms release — read the `.claude/scaffold-version` stamp, walk the CHANGELOG delta, then apply… |
 | [`/wrapup`](../.claude/commands/wrapup.md) | Wrap up the session — run the memory skill's close-out: record the session note, update the roadmap, and (if asked) branch/commit/land. |
 
 ## Agents

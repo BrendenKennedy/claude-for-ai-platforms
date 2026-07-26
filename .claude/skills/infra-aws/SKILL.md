@@ -40,7 +40,7 @@ file.**
 > **OIDC federation, never a stored access key** (`supply-chain.md` `C6`).
 
 ## The role model — set up once, by the human
-Claude acts through a dedicated **`claude-for-ai-platform`** IAM identity whose policy is the
+Claude acts through a dedicated **`claude-for-ai-platforms`** IAM identity whose policy is the
 blast radius. Starter policy: `.claude/templates/aws-iam-policy.json` — copy it, replace
 `PROJECT-PREFIX` (S3 bucket prefix), `ACCOUNT-ID`, `REGION`, `CLUSTER-NAME`, `DB-NAME`, and `DB-USER`, review it
 yourself, then attach it. Its shape, which the human should verify survives their edits:
@@ -93,11 +93,11 @@ prepares; the human executes (the agent's own role has `iam:*` denied, and the h
 any `aws iam` mutation — both by design). Prepare for them: the filled-in policy JSON (from
 the template, placeholders replaced), and this sequence —
 ```bash
-aws iam create-policy --policy-name claude-for-ai-platform \
+aws iam create-policy --policy-name claude-for-ai-platforms \
     --policy-document file://aws-iam-policy.filled.json
-aws iam create-user --user-name claude-for-ai-platform        # or create-role + trust policy for SSO/assume
-aws iam attach-user-policy --user-name claude-for-ai-platform \
-    --policy-arn arn:aws:iam::ACCOUNT-ID:policy/claude-for-ai-platform
+aws iam create-user --user-name claude-for-ai-platforms        # or create-role + trust policy for SSO/assume
+aws iam attach-user-policy --user-name claude-for-ai-platforms \
+    --policy-arn arn:aws:iam::ACCOUNT-ID:policy/claude-for-ai-platforms
 ```
 Console clicking works identically (IAM → Policies → Create from JSON → attach). Either way,
 **the human reads the policy before attaching** — the review is the point, not a formality.

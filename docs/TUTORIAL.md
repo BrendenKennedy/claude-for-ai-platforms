@@ -13,9 +13,9 @@ account required yet.
 ## 1. Install
 
 ```bash
-git clone https://github.com/BrendenKennedy/claude-for-ai-platform.git ~/dev/claude-for-ai-platform
+git clone https://github.com/BrendenKennedy/claude-for-ai-platforms.git ~/dev/claude-for-ai-platforms
 mkdir my-platform && cd my-platform && git init
-~/dev/claude-for-ai-platform/install.sh .
+~/dev/claude-for-ai-platforms/install.sh .
 ```
 
 The installer copies `.claude/` (skills, agents, commands, hooks, and the policy canon), `CLAUDE.md`

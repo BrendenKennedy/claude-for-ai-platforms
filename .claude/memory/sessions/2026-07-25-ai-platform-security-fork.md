@@ -1,7 +1,11 @@
 # 2026-07-25 — AI-platform security fork
 
-**Focus:** Fork `claude-for-datascience` 0.9.0 into `claude-for-ai-platform` 1.0.0 — an AI platform
+**Focus:** Fork `claude-for-datascience` 0.9.0 into `claude-for-ai-platforms` 1.0.0 — an AI platform
 engineering + AI security scaffold, keeping the DS layer underneath.
+
+> The singular `claude-for-ai-platform` appears in the increment-1 follow-ups below. That was the
+> proposed name; the repo was actually created as **`claude-for-ai-platforms`** (plural). Those
+> mentions are left as written rather than back-edited — see *Repo split* at the end.
 
 ## State
 
@@ -184,9 +188,48 @@ Narrowing it to exclude prose would reintroduce the evasion. Documented in the c
 workaround (use the file tools) rather than weakened. This is the one place in the session where I
 accepted a false positive instead of fixing it, and it should be revisited if it fires again.
 
+## Repo split — resolved, with a name correction
+
+The user created **`BrendenKennedy/claude-for-ai-platforms`** (plural, private, `fork: false`,
+default branch `main`) — a **standalone repo, not a GitHub fork**. That was the right call and the
+reasoning is worth keeping:
+
+- Pulling DS improvements is `git remote add upstream`, a **git** feature. The GitHub fork
+  relationship is not required for it. The only thing a fork adds is one-click cross-repo PRs, and
+  since the user owns both repos, pushing a branch to the parent achieves the same thing.
+- Forks are excluded from GitHub code search by default and have issues off by default — a real
+  cost for a scaffold whose pitch is "drop it into any project."
+- The divergence is a rewrite, not an overlay: **91 new files, 42 inherited files modified, 65
+  untouched, +12,703/−524**. The "forked from" badge would misdescribe it.
+
+**The name differed from every document in the repo** — 24 occurrences of the singular
+`claude-for-ai-platform` across 13 files, including the README title, both documented clone URLs,
+and the clone URL embedded in `/upgrade`. That last one is the one that mattered: a wrong URL in the
+command whose entire job is fetching the upstream release fails *silently* for every downstream
+project. Renamed before the push, in two groups:
+
+- **Product/repo name** — `README.md`, `CLAUDE.md`, `docs/TUTORIAL.md`, `commands/upgrade.md`,
+  `commands/intake.md`, `install.sh`, and the `CHANGELOG.md` header (which still said "all notable
+  changes to claude-for-datascience"). `docs/REFERENCE.md` regenerated via `build-reference.py`
+  rather than hand-edited, since check 7 diffs it against frontmatter.
+- **AWS IAM identity** — `infra-aws/SKILL.md`, `templates/aws-iam-policy.json`,
+  `templates/README.md`, and a `validate-bash.sh` comment name an IAM user/policy/role, not the
+  repo. Renamed for consistency: a principal called `…-platform` inside a repo called `…-platforms`
+  is a 20-minute debugging tax. Pre-fork changelog entries naming the old `claude-for-datascience`
+  IAM role were **left alone** — they were accurate when written.
+
+**No version bump.** Nothing ever shipped under the singular name and there are no tags in this
+clone, so a `1.3.1` for a name no user ever saw would be invented history.
+
 ## Still open
 
-- **The GitHub repo still does not exist** (403, session scope). Unchanged across all four
-  increments. The user needs to create `claude-for-ai-platform`, then:
-  `git remote add fork <url> && git push fork claude/ai-platform-security-fork-d8z8ha:main`
-  and `git remote add upstream <parent-url>` to keep DS improvements pullable.
+- **The push itself.** `add_repo` (needed to widen the session's git proxy beyond
+  `claude-for-datascience`) returns `requires approval` and the prompt does not reach this surface;
+  `git ls-remote` against the new repo fails with `could not read Password`, confirming the proxy
+  rejects it. The rename and verification are done and committed on
+  `claude/ai-platform-security-fork-d8z8ha`; the user runs the three remote commands locally.
+- **`origin` deliberately left pointing at `claude-for-datascience`** so the standing branch
+  instruction is not silently redirected. Re-point it once the DS-side branch is settled.
+- **A parent bug to send upstream:** `check-scaffold.sh`'s `python3 … || fails=…` swallows `$?`
+  (always 0). Found here, applies to `claude-for-datascience` too. Not filed — cross-repo PRs
+  need an explicit ask.

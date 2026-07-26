@@ -1,4 +1,4 @@
-# claude-for-ai-platform
+# claude-for-ai-platforms
 
 A Claude Code scaffold for building **AI platforms securely** — agent and LLM security, Kubernetes,
 SRE, observability, identity, and supply chain, grounded in published framework canon.
@@ -37,9 +37,9 @@ advice. It makes the defaults good and the omissions visible.
 ## Quick start
 
 ```bash
-git clone https://github.com/BrendenKennedy/claude-for-ai-platform.git
+git clone https://github.com/BrendenKennedy/claude-for-ai-platforms.git
 cd /path/to/your-project
-/path/to/claude-for-ai-platform/install.sh .    # never overwrites; safe to re-run
+/path/to/claude-for-ai-platforms/install.sh .    # never overwrites; safe to re-run
 ```
 
 Then, in Claude Code:

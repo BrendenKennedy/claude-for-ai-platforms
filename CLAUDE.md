@@ -4,7 +4,7 @@ The map of the Claude configuration here: what lives under `.claude/` and when t
 Depth deliberately lives in the skills/docs this points to — skills auto-surface by description;
 this file is for the always-on conventions and registration. Project details: the skills + `README.md`.
 
-> **claude-for-ai-platform** — a scaffold for building **AI platforms securely**: agent and LLM
+> **claude-for-ai-platforms** — a scaffold for building **AI platforms securely**: agent and LLM
 > security, Kubernetes, SRE, observability, identity, and supply chain, with the data-science
 > fundamentals that eval work depends on kept underneath. Forked from `claude-for-datascience`.
 > Archetypes (agent platform · RAG service · inference platform · eval harness · MLOps platform ·
