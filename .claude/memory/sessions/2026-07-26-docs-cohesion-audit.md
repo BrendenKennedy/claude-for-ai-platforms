@@ -93,5 +93,15 @@ verifier.
 - v1.5.0 is committed but **not tagged or released** — `scripts/publish-releases.sh` covers
   v0.9.0–v1.4.0 and needs a v1.5.0 row.
 
+## Landed
+Branch `session/2026-07-26-docs-cohesion`, 5 commits, merged to `main` at **`5cae2df`** (`--no-ff`,
+matching this repo's convention for session branches). Releases **v1.5.0** and **v1.5.1**; PROCESS.md
+independently at 1.1.0. `check-scaffold.sh` 11 checks → 19, `check-hooks.py` 85 cases → 131, both
+green on `main` in the scaffold repo and in an installed project.
+
+**Not pushed, not tagged.** v0.9.0–v1.4.0 are still unpublished on GitHub (the earlier session
+prepared `scripts/publish-releases.sh` for them but the release-create call needs the user's
+approval); v1.5.0 and v1.5.1 now join that queue and the script needs rows for both.
+
 ## Related
 - `2026-07-25-ai-platform-security-fork.md` — the merge this audit cleans up after.
